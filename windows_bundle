@@ -1,0 +1,17 @@
+
+# Windows bundle download
+
+To use the SN Rating Model on Windows without Python, download the full bundle from Google Drive:
+
+https://drive.google.com/drive/folders/1HO1RlAsAlyZne9zIWS3HURCssjqftpv3?usp=sharing
+
+This folder contains:
+- SN_Rating_Model.exe
+- run_sn_rating.bat
+- input/ (sn_rating_input.xlsx, sn_rating_config.xlsx)
+- output/ (initially empty)
+
+After downloading and unzipping, you can run the model by:
+1. Editing input/sn_rating_input.xlsx.
+2. Double‑clicking run_sn_rating.bat (or SN_Rating_Model.exe).
+3. Opening the generated report in output/.
