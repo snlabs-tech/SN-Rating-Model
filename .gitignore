@@ -1,0 +1,33 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Pytest cache
+.pytest_cache/
+
+# IDEs / editors
+.vscode/
+.idea/
+*.swp
+
+# Build / PyInstaller
+build/
+dist/
+*.spec
+
+# Windows bundle big files
+windows_bundle/SN_Rating_Model.exe
+windows_bundle/output/
+
+# OS junk
+.DS_Store
+Thumbs.db
