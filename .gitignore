@@ -11,14 +11,23 @@ env/
 # Jupyter
 .ipynb_checkpoints/
 
-# OS files
-.DS_Store
-Thumbs.db
-
-# Pytest caches
+# Pytest cache
 .pytest_cache/
 
-# IDEs
+# IDEs / editors
 .vscode/
 .idea/
 *.swp
+
+# Build / PyInstaller
+build/
+dist/
+*.spec
+
+# Windows bundle big files
+windows_bundle/SN_Rating_Model.exe
+windows_bundle/output/
+
+# OS junk
+.DS_Store
+Thumbs.db
