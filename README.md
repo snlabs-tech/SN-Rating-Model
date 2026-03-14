@@ -23,11 +23,13 @@ SN-Rating-Model/
 ├── src/
 │   └── sn_rating/
 │       ├── __init__.py
-│       ├── config.py        # configuration loading
-│       ├── model.py         # scoring logic
-│       ├── excel_io.py      # Excel input/output handling
-│       ├── report.py        # report generation
-│       └── ...
+│       ├── config.py
+│       ├── datamodel.py
+│       ├── excel_io.py
+│       ├── helpers.py
+│       ├── model.py
+│       ├── report.py
+│       └── run_from_excel.py
 │
 ├── windows_bundle/
 │   ├── run_sn_rating.bat    # Windows execution script
@@ -48,10 +50,6 @@ SN-Rating-Model/
 # Windows Usage (No Python Required)
 
 The project supports a **Windows bundle workflow** that allows users to run the rating model without installing Python.
-
-> **Pre-built Windows bundle (includes EXE):**  
-> Download from Google Drive and unzip locally:  
-> https://drive.google.com/drive/folders/1HO1RlAsAlyZne9zIWS3HURCssjqftpv3?usp=sharing
 
 ### Steps
 
