@@ -4,7 +4,7 @@
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen)
 
-The **SN Rating Model** is a financial and qualitative scoring system designed to generate structured company rating reports based on financial ratios, qualitative factors, and configurable scoring rules.
+The **SN Rating Model** uses generic, illustrative financial ratios and scoring bands that have not been probability‑of‑default (PD) validated or approved for regulatory capital or IFRS 9/CECL use. It is intended for educational, exploratory and prototype purposes only. Users may customize the configuration and calibrate the score‑to‑PD or grade mapping to align with their own internally validated models and governance frameworks.
 
 The project supports two main use cases:
 
@@ -65,7 +65,7 @@ windows_bundle/
 input/sn_rating_input.xlsx
 ```
 
-Enter your company data.
+Enter the company data.
 
 ### 3. (Optional) Adjust scoring configuration
 
@@ -77,8 +77,8 @@ This file controls:
 
 * ratio scoring bands
 * qualitative factor thresholds
-* scoring directions
-* weightings
+* scoring directions (higher the better, lower the better)
+
 
 ### 4. Save and close Excel
 
@@ -218,7 +218,6 @@ Defines model parameters including:
 
 * scoring thresholds
 * scoring directions
-* factor weights
 * rating band definitions
 
 ---
@@ -230,7 +229,6 @@ The model is designed to be **configurable via Excel**.
 Users can safely adjust:
 
 * scoring thresholds
-* factor weights
 * ratio bands
 * qualitative scoring ranges
 
@@ -251,12 +249,10 @@ After running the model, results are written to:
 ```
 windows_bundle/output/
 ```
-
-Typical outputs include:
-
-* rating summary
-* detailed score breakdown
-* generated rating report
+The main output is an Excel rating report that includes:
+- The final alphanumeric rating (e.g. BBB, BB+) and total score
+- A one‑page A4‑style summary of key ratios, qualitative factors and peer information
+- A log / calculations sheet showing the detailed scoring steps used to derive the rating
 
 ---
 
