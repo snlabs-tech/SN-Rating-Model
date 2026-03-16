@@ -344,6 +344,3 @@ Feeds into the outlook via trend analysis, not only into the rating level.
 Is optional and can be toggled via `enable_hardstops` depending on use case and risk appetite.
 
 In combination with the **main scoring engine** and **sovereign cap logic**, the distress overlay ensures that **near-default profiles** are consistently reflected in both the **level** and the **trajectory (outlook)** of the rating.
-
-
-You can **paste this directly into a `.md` file** (e.g., `hardstop_rating.md`) and it will render correctly in **GitHub, GitLab, VS Code, or Markdown viewers**.
