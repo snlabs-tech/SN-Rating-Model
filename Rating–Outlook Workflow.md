@@ -162,8 +162,7 @@ if (
         if sr == hardstop_rating:
             candidates = [hardstop_outlook, so]
             outlook = max(candidates, key=lambda o: severity[o])
-        else:
-            outlook = hardstop_outlook
+        
 else:
     outlook = hardstop_outlook
 ```
