@@ -1,6 +1,6 @@
 # SN Corporate Rating Model – Methodology
 
-This document describes the methodology implemented in the SN Corporate Rating Model. It is a transparent, rules-based framework that combines quantitative financial metrics and qualitative assessments into an issuer rating and outlook. 
+This document describes the methodology implemented in the SN Corporate Rating Model; earlier versions are deprecated. It is a transparent, rules-based framework that combines quantitative financial metrics and qualitative assessments into an issuer rating and outlook. 
 
 ---
 
@@ -16,8 +16,15 @@ The model produces a long-term **issuer credit rating** and **outlook** for corp
 
 The model is implemented in Python with Excel as the primary user interface for input and reporting. All configuration (bands, weights, scales) and inputs are provided via Excel, while the rating logic is executed by the Python engine.
 
----
+### Running the model and generating the Excel report
 
+The model and Excel report can be run in several ways:
+
+- **Notebook / Python script** – Call `run_from_excel_with_bands()` and then `generate_corporate_rating_report(...)`; the report is written to the `output` folder.
+- **Windows batch file** – Run the provided `.bat` file, which executes the model end-to-end and produces the Excel report in the `output` folder.
+- **Packaged executable** – Run the packaged `.exe`, which uses the same logic and writes the Excel report to the `output` folder next to the executable.
+
+---
 ## 2. Inputs and Data Structure
 
 ### 2.1 Excel input files
@@ -193,11 +200,40 @@ The model ensures that an Altman Z-score is available for each issuer:
 
 ---
 
-## 7. Distress / Hardstops
+## 7. Combining Quantitative and Qualitative Blocks
+
+### 7.1 Effective weights
+
+Given `n_quant` and `n_qual` active items:
+
+`compute_effective_weights` either:
+- Uses configured weights, or
+- Derives weights as:
+
+  w_q = n_quant / (n_quant + n_qual)  
+  w_l = 1 − w_q
+
+
+### 7.2 Combined score and base rating
+
+The combined score is computed as:
+
+CombinedScore = w_q · QuantitativeScore + w_l · QualitativeScore
+
+
+- `safe_score_to_rating` maps this combined score to a `base_rating`.  
+- `get_rating_band` returns the numeric score band for `base_rating`.  
+- `derive_outlook_band_only` then assigns:
+  - Outlook (`Positive`, `Stable`, `Negative`) based on where the combined score sits within the band.  
+  - Band position (`upper_band`, `middle_band`, `lower_band`).
+
+---
+
+## 8. Distress / Hardstops
 
 The model incorporates explicit distress triggers to prevent overly high ratings when financial distress indicators are weak.
 
-### 7.1 Distress bands
+### 8.1 Distress bands
 
 `DISTRESS_BANDS` defines thresholds and notches for:
 
@@ -207,7 +243,7 @@ The model incorporates explicit distress triggers to prevent overly high ratings
 
 Each band is defined as `(threshold, notches)` where notches are typically negative (downgrade).
 
-### 7.2 Computing distress notches
+### 8.2 Computing distress notches
 
 `compute_distress_notches`:
 
@@ -223,7 +259,7 @@ It returns:
 - A `details` dictionary capturing which metrics triggered distress and their values.  
 - `per_metric_notches` capturing notches per distress metric.
 
-### 7.3 Applying distress to ratings and outlook
+### 8.3 Applying distress to ratings and outlook
 
 If hardstops are enabled:
 
@@ -233,35 +269,6 @@ If hardstops are enabled:
 - `derive_outlook_with_distress_trend` can override the band-based outlook:
   - If distress notches are negative and distress ratios are deteriorating between `t1` and `t0`, outlook may be forced to `Negative`.  
   - If trends are improving, outlook may remain `Stable`.
-
----
-
-## 8. Combining Quantitative and Qualitative Blocks
-
-### 8.1 Effective weights
-
-Given `n_quant` and `n_qual` active items:
-
-`compute_effective_weights` either:
-- Uses configured weights, or
-- Derives weights as:
-
-  w_q = n_quant / (n_quant + n_qual)  
-  w_l = 1 − w_q
-
-
-### 8.2 Combined score and base rating
-
-The combined score is computed as:
-
-CombinedScore = w_q · QuantitativeScore + w_l · QualitativeScore
-
-
-- `safe_score_to_rating` maps this combined score to a `base_rating`.  
-- `get_rating_band` returns the numeric score band for `base_rating`.  
-- `derive_outlook_band_only` then assigns:
-  - Outlook (`Positive`, `Stable`, `Negative`) based on where the combined score sits within the band.  
-  - Band position (`upper_band`, `middle_band`, `lower_band`).
 
 ---
 
@@ -329,27 +336,31 @@ The `RatingModel` class encapsulates the full workflow:
 
 ---
 
-## 11. Excel Reporting and Runner
+## 11. Excel reporting and execution context
 
 ### 11.1 Excel rating report
 
-`generate_corporate_rating_report(result)` creates a multi-sheet Excel report:
+`generate_corporate_rating_report(result)` creates a multi-sheet Excel report and saves it in the `output` folder, using the issuer name in the filename (for example: `ACME_INC_Corporate_Credit_Rating_Report.xlsx`).
 
 - **Rating Report** (main sheet):
-  - Issuer identification, internal reference, report date, and model version.  
-  - Selected quantitative ratios and qualitative factors for `t0` and `t1`.  
+  - Issuer identification, internal reference, report date, and model version.
+  - Selected quantitative ratios and qualitative factors for `t0` and `t1`.
   - Quantitative, qualitative, combined scores and key rating snapshots:
-    - Base, hardstop, final rating and outlook.  
-  - Flags block (hardstops, sovereign cap, peer positioning, distress notches).  
+    - Base, hardstop, final rating and outlook.
+  - Flags block (hardstops, sovereign cap, peer positioning, distress notches).
   - Narrative rating rationale.
 
 - **log** sheet:
-  - Detailed ratio log including value, score, weight, peer averages, peer bounds and flags, distress notches.  
-  - Aggregate peer counts and scores.  
-  - Overall score, band range, and rating/outlook snapshots.  
+  - Detailed ratio log including value, score, weight, peer averages, peer bounds and flags, distress notches.
+  - Aggregate peer counts and scores.
+  - Overall score, band range, and rating/outlook snapshots.
 
 - **qual_log** sheet:
   - Per-factor qualitative log with values, scores, weights, and buckets.
+
+### Execution context
+
+The same methodology is applied whether the model is run from a Python notebook/script, a Windows batch file, or a packaged executable; in all cases, inputs are read from the `input` folder and the Excel rating report is written to the `output` folder.
 
 ### 11.2 Excel-driven runner
 
