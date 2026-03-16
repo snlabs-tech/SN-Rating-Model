@@ -12,6 +12,6 @@ This folder contains:
 - output/ (initially empty)
 
 After downloading, you can run the model by:
-1. Editing input/sn_rating_input.xlsx.
+1. Edit input/sn_rating_input.xlsx.
 2. Double‑clicking run_sn_rating.bat (or SN_Rating_Model.exe).
-3. Opening the generated report in output/.
+3. The rating report excel file saved on output/.
