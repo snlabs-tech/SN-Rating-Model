@@ -17,117 +17,99 @@ from .helpers import (
     rating_index,
     is_stronger,
     is_weaker_or_equal,
+    classify_peer_with_bandconfig,
 )
 
-
-def classify_peer_with_bandconfig(
-    metric_name: str,
-    value: float,
-    peer_avg: float,
-    band_cfg,
-    band: float = 0.10,
-):
-    """
-    Direction-aware peer classification using BandConfig:
-    - band_cfg.get_direction(metric_name) -> 'higher' / 'lower'
-    - +/- band (default 10%) around peer_avg for 'on_par'
-    """
-    if peer_avg is None or value is None:
-        return None, None, None, None
-
-    dirn = band_cfg.get_direction(metric_name)  # "higher" / "lower" / None
-    if dirn is None:
-        dirn = "higher"
-
-    lower = peer_avg * (1 - band)
-    upper = peer_avg * (1 + band)
-
-    if lower <= value <= upper:
-        flag = "on_par"
-    else:
-        if dirn == "higher":
-            flag = "over" if value > upper else "under"
-        else:  # lower is better
-            flag = "over" if value < lower else "under"
-
-    return lower, upper, flag, peer_avg
-
-
 class RatingModel:
-    def __init__(self, cp_name: str, bands: BandConfig):
-        self.cp_name = cp_name
-        self.bands = bands
+    """Main engine: compute full rating from quantitative & qualitative inputs."""
 
-    def _ensure_altman_z(self, fin: Dict[str, float], comps: Dict[str, float]) -> float:
-        if "altman_z" in fin and fin["altman_z"] is not None:
+    def __init__(self, cp_name: str, bands: BandConfig):
+        self.cp_name = cp_name                  # Issuer / counterparty name
+        self.bands = bands                      # BandConfig instance (ratio scoring tables)
+
+    def _ensure_altman_z(self, fin: Dict[str, float], comps: Dict[str, float]) -> Optional[float]:
+        """Ensure fin['altman_z'] exists; compute from components if possible."""
+        
+        # 1. If already present and finite, just return it
+        z_existing = fin.get("altman_z")
+        if z_existing is not None:
             try:
-                if not math.isnan(fin["altman_z"]):
-                    return fin["altman_z"]
+                if not math.isnan(z_existing):
+                    return z_existing
             except TypeError:
-                return fin["altman_z"]
-        z = compute_altman_z_from_components(
-            comps["working_capital"],
-            comps["total_assets"],
-            comps["retained_earnings"],
-            comps["ebit"],
-            comps["market_value_equity"],
-            comps["total_liabilities"],
-            comps["sales"],
-        )
+                return z_existing  # Non-float but present → trust it
+        
+        # 2. Safely extract components
+        wc   = comps.get("working_capital")
+        ta   = comps.get("total_assets")
+        re   = comps.get("retained_earnings")
+        ebit = comps.get("ebit")
+        mve  = comps.get("market_value_equity")
+        tl   = comps.get("total_liabilities")
+        sales = comps.get("sales")
+        
+        # 3. If anything essential is missing or zero, skip Altman
+        if None in (wc, ta, re, ebit, mve, tl, sales) or ta == 0 or tl == 0:
+            logger.info("%s-Altman_Z: skipped (missing/invalid components)", self.cp_name)
+            return None
+        
+        # 4. Compute Z from valid components
+        z = compute_altman_z_from_components(wc, ta, re, ebit, mve, tl, sales)
         fin["altman_z"] = z
         logger.info("%s-AltmanZ: computed z=%.3f from components", self.cp_name, z)
         return z
 
-        
+
+    # --------- QUANTITATIVE BLOCK ---------
+
     def compute_quantitative(
         self,
         q: QuantInputs,
         ratio_weights: Dict[str, float],
-        enable_peer_positioning: bool = True,
+        enable_peer_positioning: bool,
+        fin: Dict[str, float],
     ) -> Tuple[
         float,                    # quantitative_score
         Optional[float],          # peer_score
         Dict[str, float],         # bucket_avgs
-        float,                    # altman_z
         int,                      # n_quant_items
         int,                      # peer_under
         int,                      # peer_over
+        int,                      # peer_on_par
         int,                      # peer_total
         List[Dict[str, object]],  # ratio_log
     ]:
-        fin = dict(q.fin_t0)
-        altman_z = self._ensure_altman_z(fin, q.components_t0)
 
-        total_weighted = 0.0
-        total_weight = 0.0
-        bucket_weighted: Dict[str, float] = {}
-        bucket_weight: Dict[str, float] = {}
-        ratio_log: List[Dict[str, object]] = []
-        n_quant_items = 0
+        total_weighted = 0.0                              # Σ (weight * score)
+        total_weight = 0.0                                # Σ weight
+        bucket_weighted: Dict[str, float] = {}           # Per-bucket Σ(weight * score)
+        bucket_weight: Dict[str, float] = {}             # Per-bucket Σ(weight)
+        ratio_log: List[Dict[str, object]] = []          # Detailed per-ratio log
+        n_quant_items = 0                                 # Count of quant metrics used
 
-        # per-ratio scoring
+        # Per-ratio scoring
         for rname, val in fin.items():
-            if self.bands.get_direction(rname) is None:
+            if self.bands.get_direction(rname) is None:  # Skip ratios not configured in bands
                 continue
 
-            score = self.bands.lookup(rname, val)
+            score = self.bands.lookup(rname, val)        # Map value → 0-100 band score
             if score is None:
                 logger.info("%s-Quant: no band/score for ratio %s", self.cp_name, rname)
                 continue
 
-            w = float(ratio_weights.get(rname, 1.0))
+            w = float(ratio_weights.get(rname, 1.0))     # Default weight=1.0 if not provided
             n_quant_items += 1
 
-            fam = self.bands.ratio_family.get(rname.strip().lower(), "OTHERS")
+            fam = self.bands.ratio_family.get(rname.strip().lower(), "OTHERS")  # Bucket
 
-            total_weighted += w * score
+            total_weighted += w * score                  # Aggregate totals
             total_weight += w
 
             bucket_weighted[fam] = bucket_weighted.get(fam, 0.0) + w * score
             bucket_weight[fam] = bucket_weight.get(fam, 0.0) + w
 
             logger.info(
-                "%s-Quant: %s value=%.3f score=%.1f weight=%.2f family=%s",
+                "%s-Quant: %s value=%.2f score=%.1f weight=%.1f family=%s",
                 self.cp_name,
                 rname,
                 val,
@@ -136,8 +118,8 @@ class RatingModel:
                 fam,
             )
 
-            # per-ratio peer positioning with ±10% band, direction-aware
-            peer_flag = None
+            # Per-ratio peer positioning with ±10% band, direction-aware
+            peer_flag = None      # under, over, on_par
             peer_avg = None
             lower_bound = None
             upper_bound = None
@@ -157,7 +139,7 @@ class RatingModel:
                             val,
                             peer_avg,
                             self.bands,
-                            band=0.10,  # +/-10% as agreed
+                            band=0.10,  # ±10% on-par band
                         )
 
             ratio_log.append(
@@ -171,31 +153,33 @@ class RatingModel:
                     "PeerAvg": peer_avg,
                     "PeerLowerBound": lower_bound,
                     "PeerUpperBound": upper_bound,
-                    # DistressNotches will be added later
+                    # "DistressNotches" added later
                 }
             )
 
-        # peer positioning (aggregate score and counts)
+        # Aggregate peer score (overall peer positioning)
         peer_score: Optional[float] = None
-        peer_under = peer_over = peer_total = 0
+        peer_under = peer_over = peer_on_par = peer_total = 0
 
         if enable_peer_positioning and q.peers_t0:
-            peer_score, _, _, _ = compute_peer_score(fin, q.peers_t0)
+            (
+                peer_score,
+                peer_under,
+                peer_over,
+                peer_on_par,
+                peer_total,
+            ) = compute_peer_score(fin, q.peers_t0, self.bands, band=0.10)
+                
             if peer_score is not None:
-                w_peer = 1.0
+                w_peer = 1.0           #weight of the peer‑positioning component within the quantitative score block
                 n_quant_items += 1
-
+        
                 total_weighted += w_peer * peer_score
                 total_weight += w_peer
-
+        
                 bucket_weighted["peer"] = bucket_weighted.get("peer", 0.0) + w_peer * peer_score
                 bucket_weight["peer"] = bucket_weight.get("peer", 0.0) + w_peer
-
-                peer_under = sum(1 for r in ratio_log if r.get("PeerFlag") == "under")
-                peer_over = sum(1 for r in ratio_log if r.get("PeerFlag") == "over")
-                peer_on_par = sum(1 for r in ratio_log if r.get("PeerFlag") == "on_par")
-                peer_total = peer_under + peer_over + peer_on_par
-                
+        
                 logger.info(
                     "%s-PeerPositioning: score=%.1f under=%d over=%d on_par=%d total=%d",
                     self.cp_name,
@@ -205,22 +189,11 @@ class RatingModel:
                     peer_on_par,
                     peer_total,
                 )
-
-                ratio_log.append(
-                    {
-                        "Name": "peer_positioning",
-                        "Value": peer_score,
-                        "Score": peer_score,
-                        "Weight": w_peer,
-                        "Bucket": "peer",
-                        "PeerFlag": None,
-                        "PeerAvg": None,
-                        "PeerLowerBound": None,
-                        "PeerUpperBound": None,
-                    }
-                )
+         
         else:
-            peer_under = peer_over = peer_total = 0
+            peer_score = None
+            peer_under = peer_over = peer_on_par = peer_total = 0
+
 
         quantitative_score = total_weighted / total_weight if total_weight > 0 else 0.0
         logger.info("%s-Quant: aggregate weighted score=%.1f", self.cp_name, quantitative_score)
@@ -235,14 +208,15 @@ class RatingModel:
             quantitative_score,
             peer_score,
             bucket_avgs,
-            altman_z,
             n_quant_items,
             peer_under,
             peer_over,
+            peer_on_par,
             peer_total,
             ratio_log,
         )
 
+    # --------- QUALITATIVE BLOCK ---------
 
     def compute_qualitative(
         self,
@@ -250,13 +224,15 @@ class RatingModel:
         qual_weights: Dict[str, float],
         qual_buckets: Dict[str, str],
     ) -> Tuple[float, int, List[Dict[str, object]]]:
+        """Compute weighted qualitative score and log."""
+        
         total_weighted = 0.0
         total_weight = 0.0
         n_qual_items = 0
         qual_log: List[Dict[str, object]] = []
-    
+
         for name, val in ql.factors_t0.items():
-            # NEW: skip if value is None/NaN
+            # Skip missing / NaN values
             if val is None or (isinstance(val, float) and math.isnan(val)):
                 logger.info(
                     "%s-Qual: factor %s has NaN/None value, skipping",
@@ -264,8 +240,8 @@ class RatingModel:
                     name,
                 )
                 continue
-    
-            s = score_qual_factor_numeric(val)
+
+            s = score_qual_factor_numeric(val)           # Map 1–5 → 0–100 via QUAL_SCORE_SCALE
             if s is None:
                 logger.info(
                     "%s-Qual: unknown or out-of-range factor %s=%s",
@@ -274,16 +250,16 @@ class RatingModel:
                     val,
                 )
                 continue
-    
-            w = float(qual_weights.get(name, 1.0))
-            bucket = qual_buckets.get(name, "OTHERS")
-    
+
+            w = float(qual_weights.get(name, 1.0))       # Factor weight (default=1)
+            bucket = qual_buckets.get(name, "OTHERS")    # Category for reporting
+
             total_weighted += w * s
             total_weight += w
             n_qual_items += 1
-    
+
             logger.info(
-                "%s-Qual: %s=%s score=%.1f weight=%.2f bucket=%s",
+                "%s-Qual: %s=%s score=%.1f weight=%.1f bucket=%s",
                 self.cp_name,
                 name,
                 val,
@@ -294,7 +270,7 @@ class RatingModel:
             qual_log.append(
                 {"Name": name, "Value": val, "Score": s, "Weight": w, "Bucket": bucket}
             )
-    
+
         qualitative_score = total_weighted / total_weight if total_weight > 0 else 0.0
         logger.info(
             "%s-Qual: aggregate weighted score=%.1f",
@@ -303,15 +279,16 @@ class RatingModel:
         )
         return qualitative_score, n_qual_items, qual_log
 
+    # --------- DISTRESS / HARDSTOPS ---------
+
     def compute_distress_notches(
         self,
         fin: Dict[str, float],
-        altman_z: float,
     ) -> Tuple[int, Dict[str, float], Dict[str, int]]:
         total_notches = 0
         details: Dict[str, float] = {}
         per_metric_notches: Dict[str, int] = {}
-
+    
         ic = fin.get("interest_coverage")
         if ic is not None:
             for threshold, notches in DISTRESS_BANDS["interest_coverage"]:
@@ -320,7 +297,7 @@ class RatingModel:
                     details["interest_coverage"] = ic
                     per_metric_notches["interest_coverage"] = notches
                     break
-
+    
         dscr = fin.get("dscr")
         if dscr is not None:
             for threshold, notches in DISTRESS_BANDS["dscr"]:
@@ -329,20 +306,23 @@ class RatingModel:
                     details["dscr"] = dscr
                     per_metric_notches["dscr"] = notches
                     break
-
-        for threshold, notches in DISTRESS_BANDS["altman_z"]:
-            if altman_z < threshold:
-                total_notches += notches
-                details["altman_z"] = altman_z
-                per_metric_notches["altman_z"] = notches
-                break
-
+    
+        altman_z = fin.get("altman_z")
+        if altman_z is not None:
+            for threshold, notches in DISTRESS_BANDS["altman_z"]:
+                if altman_z < threshold:
+                    total_notches += notches
+                    details["altman_z"] = altman_z
+                    per_metric_notches["altman_z"] = notches
+                    break
+        # Cap maximum downgrade at 4 notches (notches are negative)
         if total_notches < MAX_DISTRESS_NOTCHES:
             total_notches = MAX_DISTRESS_NOTCHES
-
+    
         return total_notches, details, per_metric_notches
 
-    
+    # --------- TOP-LEVEL ORCHESTRATION ---------
+
     def compute_final_rating(
         self,
         quant_inputs: QuantInputs,
@@ -351,37 +331,48 @@ class RatingModel:
         sovereign_outlook: Optional[str] = None,
         enable_hardstops: bool = False,
         enable_sovereign_cap: bool = False,
-        enable_peer_positioning: bool = True,
-        ratio_weights: Dict[str, float] = None,
-        qual_weights: Dict[str, float] = None,
-        qual_buckets: Dict[str, str] = None,
+        enable_peer_positioning: bool = False,
+        ratio_weights: Optional[Dict[str, float]] = None,
+        qual_weights: Optional[Dict[str, float]] = None,
+        qual_buckets: Optional[Dict[str, str]] = None,
     ) -> RatingOutputs:
+        """Main API: returns fully populated RatingOutputs dataclass."""
+        
         ratio_weights = ratio_weights or {}
         qual_weights = qual_weights or {}
         qual_buckets = qual_buckets or {}
 
+        fin = dict(quant_inputs.fin_t0)
+
+        # Altman once, on the same fin
+        altman_z = self._ensure_altman_z(fin, quant_inputs.components_t0)
+        
+        # 1. Quantitative block
         (
             quant_score,
             peer_score,
             bucket_avgs,
-            altman_z,
             n_quant,
             peer_under,
             peer_over,
+            peer_on_par,
             peer_total,
             ratio_log,
         ) = self.compute_quantitative(
             quant_inputs,
             ratio_weights=ratio_weights,
             enable_peer_positioning=enable_peer_positioning,
+            fin=fin,
         )
 
+        # 2. Qualitative block
         qual_score, n_qual, qual_log = self.compute_qualitative(
             qual_inputs,
             qual_weights=qual_weights,
             qual_buckets=qual_buckets,
         )
 
+        # 3. Weights between quant and qual
         wq, wl = compute_effective_weights(n_quant, n_qual)
         logger.info(
             "%s-Weights: n_quant=%d n_qual=%d -> wq=%.3f wl=%.3f",
@@ -394,20 +385,19 @@ class RatingModel:
 
         combined_score = wq * quant_score + wl * qual_score
 
+        # 4. Base rating and band-based outlook
         base_rating = safe_score_to_rating(combined_score)
         base_outlook, band_position = derive_outlook_band_only(combined_score, base_rating)
 
+        # 5. Distress / hardstops
         if enable_hardstops:
-            distress_notches, hardstop_details, distress_per_metric = self.compute_distress_notches(
-                quant_inputs.fin_t0,
-                altman_z,
-            )
+            distress_notches, hardstop_details, distress_per_metric = self.compute_distress_notches(fin,)
         else:
             distress_notches = 0
             hardstop_details = {}
             distress_per_metric = {}
 
-        # Enrich ratio_log with distress notches per metric
+        # Enrich ratio_log with distress per metric
         for row in ratio_log:
             name = row.get("Name")
             if name in {"interest_coverage", "dscr", "altman_z"}:
@@ -418,6 +408,7 @@ class RatingModel:
         hardstop_rating = move_notches(base_rating, distress_notches)
         hardstop_triggered = (hardstop_rating != base_rating)
 
+        # 6. Sovereign cap
         capped_rating = hardstop_rating
         if enable_sovereign_cap and sovereign_rating is not None:
             capped_rating = apply_sovereign_cap(hardstop_rating, sovereign_rating)
@@ -430,6 +421,8 @@ class RatingModel:
             and final_rating == sovereign_rating
         )
 
+        # 7. Outlook adjustments (distress trend + sovereign)
+        # If no hardstops are triggered, hardstop_outlook ≈ base_outlook; outlook follows a waterfall: base → hardstop → sovereign.
         hardstop_outlook = derive_outlook_with_distress_trend(
             base_outlook,
             distress_notches,
@@ -446,21 +439,20 @@ class RatingModel:
             severity = {"Positive": 0, "Stable": 1, "Negative": 2}
 
             if is_stronger(hardstop_rating, sr):
-                outlook = so
+                outlook = so                                  # Sovereign stronger → use its outlook
             else:
                 if sr == hardstop_rating:
                     candidates = [hardstop_outlook, so]
                     outlook = max(candidates, key=lambda o: severity[o])
-                else:
-                    outlook = hardstop_outlook
         else:
             outlook = hardstop_outlook
 
         if final_rating == "AAA" and outlook == "Positive" and not sovereign_cap_binding:
-            outlook = "Stable"
+            outlook = "Stable"                               # No AAA with Positive in this model
 
         final_outlook = outlook
 
+        # 8. Flags for UI / debug
         flags = {
             "enable_hardstops": enable_hardstops,
             "enable_sovereign_cap": enable_sovereign_cap and (sovereign_rating is not None),
@@ -469,6 +461,7 @@ class RatingModel:
             "sovereign_cap_binding": sovereign_cap_binding,
         }
 
+        # 9. Human-readable explanation string
         parts: List[str] = []
         parts.append(
             f"Based on the quantitative and qualitative factors, the combined score is "
@@ -526,6 +519,7 @@ class RatingModel:
             distress_notches,
         )
 
+        # 10. Return fully populated RatingOutputs dataclass
         return RatingOutputs(
             issuer_name=self.cp_name,
             quantitative_score=quant_score,
@@ -544,11 +538,12 @@ class RatingModel:
             sovereign_cap_binding=sovereign_cap_binding,
             outlook=final_outlook,
             bucket_avgs=bucket_avgs,
-            altman_z_t0=altman_z,
+            altman_z_t0=fin.get("altman_z"),
             flags=flags,
             rating_explanation=rating_explanation,
             peer_underperform_count=peer_under,
             peer_outperform_count=peer_over,
+            peer_on_par_count=peer_on_par,
             peer_total_compared=peer_total,
             band_position=band_position,
             ratio_log=ratio_log,

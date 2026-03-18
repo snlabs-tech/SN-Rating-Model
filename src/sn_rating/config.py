@@ -1,12 +1,14 @@
 import logging
 from typing import Dict, List, Tuple
 
+# Setup root logger (DEBUG level, timestamp format) - shared across package
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.DEBUG, 
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
 )
-logger = logging.getLogger("sn_rating")
+logger = logging.getLogger("sn_rating")             # Package-specific logger name
 
+# Score → Rating lookup: [(threshold, rating), ...] - higher score = better rating
 SCORE_TO_RATING: List[Tuple[float, str]] = [
     (95, "AAA"),
     (90, "AA+"),
@@ -31,21 +33,38 @@ SCORE_TO_RATING: List[Tuple[float, str]] = [
     (0, "C"),
 ]
 
+# Full rating scale top→bottom (used for notch adjustments, display)
 RATING_SCALE = [
-    "AAA", "AA+", "AA", "AA-",
-    "A+", "A", "A-",
-    "BBB+", "BBB", "BBB-",
-    "BB+", "BB", "BB-",
-    "B+", "B", "B-",
-    "CCC+", "CCC", "CCC-",
-    "CC", "C",
+    "AAA",
+    "AA+",
+    "AA",
+    "AA-",
+    "A+",
+    "A",
+    "A-",
+    "BBB+",
+    "BBB",
+    "BBB-",
+    "BB+",
+    "BB",
+    "BB-",
+    "B+",
+    "B",
+    "B-",
+    "CCC+",
+    "CCC",
+    "CCC-",
+    "CC",
+    "C",
 ]
 
+# Component weights (None=calculated dynamically by RatingModel)
 RATING_WEIGHTS = {
     "quantitative": None,
     "qualitative": None,
 }
 
+# Distress triggers: {metric: [(threshold, notches_down), ...]} - sorted low→high
 DISTRESS_BANDS = {
     "interest_coverage": [
         (0.5, -4),
@@ -63,8 +82,10 @@ DISTRESS_BANDS = {
         (1.81, -2),
     ],
 }
-MAX_DISTRESS_NOTCHES = -4
+MAX_DISTRESS_NOTCHES = -4                          # Cap total downward adjustment
 
+
+# Qualitative overlay: {management_score_1-5 → score_boost_pct}
 QUAL_SCORE_SCALE: Dict[int, float] = {
     5: 100.0,
     4: 75.0,

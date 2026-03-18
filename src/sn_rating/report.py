@@ -13,12 +13,14 @@ from sn_rating.helpers import get_rating_band, input_path, output_path
 
 
 def generate_corporate_rating_report(result) -> str:
-    res = result
+    """Create a formatted Excel report (main + log sheets) from RatingOutputs."""
+    
+    res = result  # Alias for brevity
 
     # ------------------------------------------------------------------
-    # Load input sheets for display
+    # Load input sheets for display (only for showing original ratios/factors)
     # ------------------------------------------------------------------
-    rating_input_file = input_path("sn_rating_input.xlsx")
+    rating_input_file = input_path("sn_rating_input.xlsx")  # Input workbook path
 
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=UserWarning, module="openpyxl")
@@ -28,37 +30,35 @@ def generate_corporate_rating_report(result) -> str:
             df_meta = pd.read_excel(xls, sheet_name="metadata")
             df_peers = pd.read_excel(xls, sheet_name="peers_t0")
 
+    # Drop unnamed helper columns
     df_fin = df_fin.loc[:, ~df_fin.columns.str.contains("^Unnamed")]
     df_qual = df_qual.loc[:, ~df_qual.columns.str.contains("^Unnamed")]
 
-    YEAR_T0, YEAR_T1, YEAR_T2 = _infer_time_labels(df_fin)
+    YEAR_T0, YEAR_T1, YEAR_T2 = _infer_time_labels(df_fin)  # Infer T0/T1/T2 labels
 
-    meta = dict(zip(df_meta["field"], df_meta["value"]))
+    meta = dict(zip(df_meta["field"], df_meta["value"]))  # metadata → dict
 
     raw_name = str(meta.get("name", "")).strip()
     issuer_name = raw_name.title()
-    sovereign_rating = meta.get("sovereign_rating", "")
-    sovereign_outlook = meta.get("sovereign_outlook", "")
+    sovereign_rating: Optional[str] = (meta.get("sovereign_rating") or "").strip() or None
+    sovereign_outlook: Optional[str] = (meta.get("sovereign_outlook") or "").strip() or None
 
-    enable_peer_positioning = bool(meta.get("enable_peer_positioning", False))
-    enable_sovereign_cap = bool(meta.get("enable_sovereign_cap", False))
-    enable_hardstops = bool(meta.get("enable_hardstops", False))
+    enable_hardstops = res.flags.get("enable_hardstops", False)
+    enable_sovereign_cap = res.flags.get("enable_sovereign_cap", False)
+    enable_peer_positioning = res.flags.get("enable_peer_positioning", False)
 
-    peer_avg_fin: Dict[str, float] = {}
-    peer_avg_qual: Dict[str, float] = {}
-    peer_score = res.peer_score
+    peer_avg_fin: Dict[str, float] = {}  # Peer averages for ratios
+    peer_score = res.peer_score          # Already computed by model
 
     if enable_peer_positioning and not df_peers.empty:
-        df_peers_indexed = df_peers.set_index(df_peers.columns[0])
-
+        df_peers_indexed = df_peers.set_index(df_peers.columns[0])  # First col as index
         for ratio in df_fin.index:
             if ratio in df_peers_indexed.index:
                 peer_avg_fin[ratio] = df_peers_indexed.loc[ratio].mean()
 
-        for factor in df_qual.index:
-            if factor in df_peers_indexed.index:
-                peer_avg_qual[factor] = df_peers_indexed.loc[factor].mean()
-
+    # ------------------------------------------------------------------
+    # Set up main workbook and sheet
+    # ------------------------------------------------------------------
     wb = Workbook()
     ws = wb.active
     ws.title = "Rating Report"
@@ -66,10 +66,12 @@ def generate_corporate_rating_report(result) -> str:
     bold = Font(bold=True)
     title_font = Font(size=14, bold=True)
 
+    # Column widths for main report
     widths = [23, 13, 13, 23, 13, 13]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
+    # Report title row
     ws.merge_cells("A1:F1")
     ws["A1"] = "CORPORATE CREDIT RATING REPORT"
     ws["A1"].font = title_font
@@ -77,7 +79,7 @@ def generate_corporate_rating_report(result) -> str:
 
     report_date = datetime.today().strftime("%Y-%m-%d")
     run_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    internal_id = f"RR-{datetime.today().strftime('%Y%m%d')}"
+    internal_id = f"RR-{datetime.today().strftime('%Y%m%d')}"  # Simple daily ref
 
     header = [
         ("Issuer Name", issuer_name, "Internal Ref ID", internal_id),
@@ -96,9 +98,9 @@ def generate_corporate_rating_report(result) -> str:
         ws[f"E{row}"] = right_val
         row += 1
 
-    row += 1
+    row += 1  # blank row after header block
 
-    # Section headers
+    # Section headers for ratios/factors
     ws[f"A{row}"] = "Quantitative ratios"
     ws[f"A{row}"].font = bold
     ws[f"B{row}"] = YEAR_T0
@@ -109,14 +111,16 @@ def generate_corporate_rating_report(result) -> str:
     ws[f"E{row}"] = YEAR_T0
     ws[f"F{row}"] = YEAR_T1
 
+    # Bold + center A..F (so FY24 on the qual side is included)
     for col in range(1, 7):
-        ws.cell(row=row, column=col).font = bold
-        ws.cell(row=row, column=col).alignment = Alignment(horizontal="center")
+        cell = ws.cell(row=row, column=col)
+        cell.font = bold
+        cell.alignment = Alignment(horizontal="center")
 
-    row += 1
+    row += 1  # move to first data row
 
     # ------------------------------------------------------------------
-    # Build ordered lists from logs
+    # Build ordered lists from logs (to choose which rows to show)
     # ------------------------------------------------------------------
     ratio_rows: List[tuple] = []
     for r in res.ratio_log:
@@ -129,7 +133,7 @@ def generate_corporate_rating_report(result) -> str:
     fin_index = [name for name, _ in ratio_rows]
 
     qual_rows: List[str] = []
-    for r in getattr(res, "qual_log", []):
+    for r in res.qual_log:
         name = r.get("Name")
         if not name:
             continue
@@ -140,7 +144,8 @@ def generate_corporate_rating_report(result) -> str:
     else:
         qual_index = list(df_qual.index)
 
-    TABLE_ROWS = 20
+    table_start_row = row
+    TABLE_ROWS = max(20, len(fin_index), len(qual_index))
 
     for i in range(TABLE_ROWS):
         if i < len(fin_index):
@@ -148,17 +153,33 @@ def generate_corporate_rating_report(result) -> str:
             ws[f"A{row}"] = ratio
             ws[f"B{row}"] = df_fin.loc[ratio].get(YEAR_T0)
             ws[f"C{row}"] = df_fin.loc[ratio].get(YEAR_T1)
+            for col in ("B", "C"):
+                cell = ws[f"{col}{row}"]
+                if isinstance(cell.value, (int, float)):
+                    cell.number_format = "0.00"
+                    cell.alignment = Alignment(horizontal="right")
 
         if i < len(qual_index):
             factor = qual_index[i]
             ws[f"D{row}"] = factor
             ws[f"E{row}"] = df_qual.loc[factor].get(YEAR_T0)
             ws[f"F{row}"] = df_qual.loc[factor].get(YEAR_T1)
+            for col in ("E", "F"):
+                cell = ws[f"{col}{row}"]
+                if isinstance(cell.value, (int, float)):
+                    cell.number_format = "0.00"
+                    cell.alignment = Alignment(horizontal="right")
 
         row += 1
 
-    row += 1
+    table_end_row = row - 1
+
+    row += 1  # blank row after ratios/factors table
     score_start = row
+
+    # ------------------------------------------------------------------
+    # Score summary block (right-hand side)
+    # ------------------------------------------------------------------
     score_block = [
         ("Quantitative Score", res.quantitative_score),
         ("Qualitative Score", res.qualitative_score),
@@ -174,13 +195,17 @@ def generate_corporate_rating_report(result) -> str:
         ws[f"F{row}"] = value
         row += 1
 
-       # Then your flags block continues as before
+    score_block_end_row = row - 1
+
+    # ------------------------------------------------------------------
+    # Flags block on left side
+    # ------------------------------------------------------------------
     flags = [
         ("Peer positioning enabled", enable_peer_positioning),
-        ("Hardstop enabled", enable_hardstops),
-        ("Sovereign cap enabled", enable_sovereign_cap),
-        ("Hardstop triggered", res.hardstop_triggered),
-        ("Distress_notches", res.distress_notches),
+        ("Hardstop enabled",         enable_hardstops),
+        ("Sovereign cap enabled",    enable_sovereign_cap),
+        ("Hardstop triggered",       res.hardstop_triggered),
+        ("Distress_notches",         res.distress_notches),
         ("Sovereign Rating/Outlook", f"{sovereign_rating}/{sovereign_outlook}"),
     ]
 
@@ -189,26 +214,49 @@ def generate_corporate_rating_report(result) -> str:
         ws[f"A{score_start+i}"].font = bold
         ws[f"C{score_start+i}"] = value
 
-    row += 1
-    ws[f"A{row}"] = "RATING RATIONALE"
-    ws[f"A{row}"].font = bold
+    flags_end_row = score_start + len(flags) - 1
 
-    row += 1
-    ws.merge_cells(start_row=row, start_column=1, end_row=row + 9, end_column=6)
-    ws[f"A{row}"] = res.rating_explanation
-    ws[f"A{row}"].alignment = Alignment(wrap_text=True, vertical="top")
+    # ------------------------------------------------------------------
+    # Rating rationale block
+    # ------------------------------------------------------------------
+    # One blank row between flags and RATING RATIONALE
+    row = flags_end_row + 1  # empty spacer row
+    row += 1                 # RATING RATIONALE title row
+    rating_title_row = row
 
+    ws[f"A{rating_title_row}"] = "RATING RATIONALE"
+    ws[f"A{rating_title_row}"].font = bold
+
+    row += 1                 # first line of text
+    rationale_top = row
+    rationale_height = 10
+    rationale_bottom = rationale_top + rationale_height - 1
+
+    ws.merge_cells(start_row=rationale_top, start_column=1,
+                   end_row=rationale_bottom, end_column=6)
+    ws[f"A{rationale_top}"] = res.rating_explanation
+    ws[f"A{rationale_top}"].alignment = Alignment(wrap_text=True, vertical="top")
+
+    # ------------------------------------------------------------------
+    # Page setup (A4, fit to one page)
+    # ------------------------------------------------------------------
     ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
     ws.page_margins = PageMargins(
-        left=0.3, right=0.3, top=0.5, bottom=0.5, header=0.2, footer=0.2
+        left=0.3,
+        right=0.3,
+        top=0.5,
+        bottom=0.5,
+        header=0.2,
+        footer=0.2,
     )
     ws.sheet_properties.pageSetUpPr.fitToPage = True
     ws.page_setup.fitToWidth = 1
     ws.page_setup.fitToHeight = 1
-    last_row = 50
-    ws.print_area = "A1:F50"
+    last_row = rationale_bottom
+    ws.print_area = f"A1:F{last_row}"
 
+    # Align flags and score numbers to the right
     for r in range(score_start, score_start + len(flags)):
         ws[f"C{r}"].alignment = Alignment(horizontal="right")
 
@@ -218,11 +266,14 @@ def generate_corporate_rating_report(result) -> str:
         if isinstance(c.value, (int, float)):
             c.number_format = "0.00"
 
+    # ------------------------------------------------------------------
+    # Borders
+    # ------------------------------------------------------------------
     thick = Side(style="thick")
 
-    def apply_outer_thick_border(ws_, rng):
+    def apply_outer_thick_border(ws_, rng: str) -> None:
+        """Draw a thick border around a rectangular cell range."""
         min_col, min_row, max_col, max_row = range_boundaries(rng)
-
         for row_cells in ws_.iter_rows(
             min_row=min_row,
             max_row=max_row,
@@ -247,44 +298,47 @@ def generate_corporate_rating_report(result) -> str:
 
                 cell.border = Border(top=top, bottom=bottom, left=left, right=right)
 
+    # Outer frame from title through rationale bottom (keep)
+    table_frame_bottom = table_end_row + 1  # one row after the last ratio row
+    score_frame_bottom = flags_end_row + 1  # one row after last flag row
+    
+    apply_outer_thick_border(ws, f"A1:F{rationale_bottom}")
     apply_outer_thick_border(ws, "A2:F7")
-    apply_outer_thick_border(ws, "A9:F29")
-    apply_outer_thick_border(ws, "A9:C29")
-    apply_outer_thick_border(ws, "A30:F36")
-    apply_outer_thick_border(ws, "A30:C36")
-    apply_outer_thick_border(ws, "A37:F47")
-    apply_outer_thick_border(ws, "A1:F47")
+    apply_outer_thick_border(ws, f"A{table_start_row}:F{table_frame_bottom}")
+    apply_outer_thick_border(ws, f"A{table_start_row}:C{table_frame_bottom}")
+    apply_outer_thick_border(ws, f"A{score_start}:F{score_frame_bottom}")
+    apply_outer_thick_border(ws, f"A{score_start}:C{score_frame_bottom}")
 
     # ------------------------------------------------------------------
-    # Log sheet
+    # Log sheet (ratio log + peer/distress summary)
     # ------------------------------------------------------------------
     log_ws = wb.create_sheet(title="log")
 
     log_rows: List[Dict[str, Any]] = []
-    log_rows.extend(res.ratio_log)
+    log_rows.extend(res.ratio_log)                         # Start with detailed ratio log
 
-    # Derive counts from PeerFlag in ratio_log
+    # Derive peer counts from PeerFlag in ratio_log
     under_count = sum(1 for r in res.ratio_log if r.get("PeerFlag") == "under")
     over_count = sum(1 for r in res.ratio_log if r.get("PeerFlag") == "over")
     on_par_count = sum(1 for r in res.ratio_log if r.get("PeerFlag") == "on_par")
     total_count = under_count + over_count + on_par_count
 
-    # Separator
+    # Blank separator
     log_rows.append({"Name": "", "Value": "", "Score": "", "PeerFlag": None})
-
-    # Compute peer_positioning score: under / total
+    
+    peer_score = res.peer_score
+    # Under / total share (simple peer underperformance share)
     if total_count > 0:
-        peer_score = under_count / total_count
+        under_share = under_count / total_count
     else:
-        peer_score = None
+        under_share = None
 
-    # If ratio_log already has a 'peer_positioning' row, overwrite its Value
     for row_dict in log_rows:
         if row_dict.get("Name") == "peer_positioning":
             row_dict["Value"] = peer_score
             break
 
-    # Summary rows based on flags
+    # Summary rows based on flags/aggregates
     log_rows.append(
         {
             "Name": "Peer positioning enabled",
@@ -327,17 +381,25 @@ def generate_corporate_rating_report(result) -> str:
     )
     log_rows.append(
         {
+            "Name": "peer_positioning",
+            "Value": under_share,   
+            "Score": res.peer_score,
+            "PeerFlag": None,
+        }
+    )
+    log_rows.append(
+        {
             "Name": "aggregate quantitative score",
-            "Value": res.quantitative_score,
-            "Score": "",
+            "Value": "",
+            "Score": res.quantitative_score,
             "PeerFlag": None,
         }
     )
     log_rows.append(
         {
             "Name": "aggregate qualitative score",
-            "Value": res.qualitative_score,
-            "Score": "",
+            "Value": "",
+            "Score": res.qualitative_score,
             "PeerFlag": None,
         }
     )
@@ -437,20 +499,42 @@ def generate_corporate_rating_report(result) -> str:
         }
     )
 
-    # Build DataFrame, now preserving peer/distress fields
+    # Build DataFrame and preserve peer/distress columns
     log_df = pd.DataFrame(log_rows)
 
-    # Ensure base columns exist; keep useful columns if present
-    for col in ["Name", "Value", "Score", "PeerFlag", "PeerAvg", "PeerLowerBound", "PeerUpperBound", "DistressNotches"]:
+    # Ensure base columns exist
+    for col in [
+        "Name",
+        "Value",
+        "Score",
+        "PeerFlag",
+        "PeerAvg",
+        "PeerLowerBound",
+        "PeerUpperBound",
+        "DistressNotches",
+    ]:
         if col not in log_df.columns:
             log_df[col] = None
 
-    log_df = log_df[["Name", "Value", "Score", "PeerFlag", "PeerAvg", "PeerLowerBound", "PeerUpperBound", "DistressNotches"]]
+    log_df = log_df[
+        [
+            "Name",
+            "Value",
+            "Score",
+            "PeerFlag",
+            "PeerAvg",
+            "PeerLowerBound",
+            "PeerUpperBound",
+            "DistressNotches",
+        ]
+    ]
 
+    # Write header row
     bold = Font(bold=True)
     for j, col in enumerate(log_df.columns, start=1):
         log_ws.cell(row=1, column=j, value=col).font = bold
 
+    # Write data rows with number formats and alignment
     for i, (_, row_series) in enumerate(log_df.iterrows(), start=2):
         name = row_series["Name"]
 
@@ -464,7 +548,7 @@ def generate_corporate_rating_report(result) -> str:
         ub_cell = log_ws.cell(row=i, column=7, value=row_series["PeerUpperBound"])
         dn_cell = log_ws.cell(row=i, column=8, value=row_series["DistressNotches"])
 
-        # Number formats
+        # Number formatting
         if isinstance(row_series["Value"], (int, float)):
             if name in {
                 "peer_underperform_count",
@@ -490,21 +574,24 @@ def generate_corporate_rating_report(result) -> str:
         if isinstance(row_series["DistressNotches"], (int, float)):
             dn_cell.number_format = "0"
 
-        # Alignment
-        for cell in (v_cell, s_cell, avg_cell, lb_cell, ub_cell, dn_cell):
+        # Right-align numeric cells
+        for cell in (v_cell, s_cell, p_cell, avg_cell, lb_cell, ub_cell, dn_cell):
             cell.alignment = Alignment(horizontal="right")
-        # PeerFlag is text; default alignment is fine
-
-    # Adjust column widths for log sheet
-    for col_letter, width in zip(["A", "B", "C", "D", "E", "F", "G", "H"], [30, 20, 15, 12, 15, 15, 15, 15]):
+       
+    # Column widths for log sheet
+    for col_letter, width in zip(
+        ["A", "B", "C", "D", "E", "F", "G", "H"],
+        [30, 20, 15, 12, 15, 15, 15, 15],
+    ):
         log_ws.column_dimensions[col_letter].width = width
 
     # ------------------------------------------------------------------
-    # Optional: Qualitative log sheet
+    # Optional: qualitative log sheet
     # ------------------------------------------------------------------
-    if getattr(res, "qual_log", None):
+    if res.qual_log:          # will be False only if the list is empty
         qual_ws = wb.create_sheet(title="qual_log")
         qual_df = pd.DataFrame(res.qual_log)
+
         # Ensure standard columns
         for col in ["Name", "Value", "Score", "Weight", "Bucket"]:
             if col not in qual_df.columns:
@@ -534,6 +621,9 @@ def generate_corporate_rating_report(result) -> str:
         for col_letter, width in zip(["A", "B", "C", "D", "E"], [30, 15, 15, 15, 20]):
             qual_ws.column_dimensions[col_letter].width = width
 
+    # ------------------------------------------------------------------
+    # Save workbook to output folder
+    # ------------------------------------------------------------------
     safe_name = issuer_name.replace(" ", "_")
     out_file = output_path(f"{safe_name}_Corporate_Credit_Rating_Report.xlsx")
 
