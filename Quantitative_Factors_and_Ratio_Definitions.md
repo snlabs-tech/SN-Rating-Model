@@ -1,6 +1,8 @@
 # Quantitative Factors and Ratio Definitions
-
-This document describes the quantitative ratios used in the SN Corporate Rating Model, how they are defined, and why they are included in the analysis.
+> ⚠️ Disclaimer  
+> The quantitative factors and ratio definitions in this document are **illustrative** and have **not** been probability‑of‑default (PD) validated or approved for regulatory capital, IFRS 9 or CECL purposes.  
+> They are intended to demonstrate the model’s mechanics and are not a recommendation to use any specific ratio set in production.  
+> Users should adapt the ratio set and calibrate score‑to‑PD or grade mappings to align with their own internally validated models, data, and governance frameworks.
 
 All ratios are ultimately mapped to a 0–100 internal score using the band tables in `sn_rating_config.xlsx` (loaded via `BandConfig`). For each ratio, bands are defined such that more favourable values (for that specific ratio) receive higher scores – whether that means a higher or a lower numeric value.
 
