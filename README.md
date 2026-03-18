@@ -4,6 +4,13 @@
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen)
 
+## Status
+
+This repository contains the **latest and actively maintained** SN Rating Model.
+Earlier implementations of the SN Rating Model are **deprecated** and kept only
+for historical reference. They will not receive new features or bug fixes.
+
+## Overview
 The **SN Rating Model** uses generic, illustrative financial ratios and scoring bands that have not been probability‑of‑default (PD) validated or approved for regulatory capital or IFRS 9/CECL use. It is intended for educational, exploratory and prototype purposes only. Users may customize the configuration and calibrate the score‑to‑PD or grade mapping to align with their own internally validated models and governance frameworks.
 
 The project supports two main use cases:
