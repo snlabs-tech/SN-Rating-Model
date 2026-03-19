@@ -28,6 +28,7 @@ The model reads Excel input data, applies scoring rules defined in configuration
 SN-Rating-Model/
 │
 ├── src/
+│   ├── run_sn_rating.py        # CLI / PyInstaller entry point
 │   └── sn_rating/
 │       ├── __init__.py
 │       ├── config.py
@@ -39,17 +40,16 @@ SN-Rating-Model/
 │       └── run_from_excel.py
 │
 ├── windows_bundle/
-│   ├── run_sn_rating.bat    # Windows execution script
-│   │
+│   ├── run_sn_rating.bat
 │   ├── input/
 │   │   ├── sn_rating_input.xlsx
 │   │   └── sn_rating_config.xlsx
-│   │
-│   └── output/              # created at runtime (initially empty)
+│   └── output/                # created at runtime
 │
 ├── .gitignore
 ├── LICENSE
 └── README.md
+
 ```
 
 ---
