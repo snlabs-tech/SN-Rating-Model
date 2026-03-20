@@ -28,7 +28,6 @@ The model reads Excel input data, applies scoring rules defined in configuration
 SN-Rating-Model/
 │
 ├── src/
-│   ├── run_sn_rating.py        # CLI / PyInstaller entry point
 │   └── sn_rating/
 │       ├── __init__.py
 │       ├── config.py
@@ -44,12 +43,22 @@ SN-Rating-Model/
 │   ├── input/
 │   │   ├── sn_rating_input.xlsx
 │   │   └── sn_rating_config.xlsx
-│   └── output/                # created at runtime
+│   └── output/                  # created at runtime
+│
+├── docs/
+│   ├── Hardstop_Rating_Workflow.md
+│   ├── Methodology overview.md
+│   ├── Quantitative_Factors_and_Ratio_Definitions.md
+│   ├── Rating–Outlook Workflow.md
+│   ├── Sovereign Cap Workflow.md
+│   └── windows_bundle.md
+│
+├── notebooks/
+│   └── sn_rating.ipynb
 │
 ├── .gitignore
 ├── LICENSE
 └── README.md
-
 ```
 
 ---
