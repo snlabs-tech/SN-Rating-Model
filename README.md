@@ -24,28 +24,31 @@ The model reads Excel input data, applies scoring rules defined in configuration
 
 # Repository Structure
 
+## Repository Structure
+
 ```
 SN-Rating-Model/
 │
 ├── src/
-│   └── sn_rating/
+│   └── sn_rating/              # Core Python package
 │       ├── __init__.py
-│       ├── config.py
-│       ├── datamodel.py
-│       ├── excel_io.py
-│       ├── helpers.py
-│       ├── model.py
-│       ├── report.py
-│       └── run_from_excel.py
+│       ├── __main__.py         # Enables `python -m sn_rating`
+│       ├── config.py           # Configuration handling
+│       ├── datamodel.py        # Data structures and schemas
+│       ├── excel_io.py         # Excel input/output logic
+│       ├── helpers.py          # Utility functions
+│       ├── model.py            # Rating model logic
+│       ├── report.py           # Report generation
+│       └── run_from_excel.py   # Entry point for Excel-based runs
 │
-├── windows_bundle/
+├── windows_bundle/             # Standalone Windows execution package
 │   ├── run_sn_rating.bat
 │   ├── input/
 │   │   ├── sn_rating_input.xlsx
 │   │   └── sn_rating_config.xlsx
-│   └── output/                  # created at runtime
+│   └── output/                 # Generated at runtime
 │
-├── docs/
+├── docs/                       # Methodology and workflow documentation
 │   ├── Hardstop_Rating_Workflow.md
 │   ├── Methodology overview.md
 │   ├── Quantitative_Factors_and_Ratio_Definitions.md
@@ -53,13 +56,14 @@ SN-Rating-Model/
 │   ├── Sovereign Cap Workflow.md
 │   └── windows_bundle.md
 │
-├── notebooks/
+├── notebooks/                  # Exploratory analysis
 │   └── sn_rating.ipynb
 │
 ├── .gitignore
 ├── LICENSE
 └── README.md
 ```
+
 
 ---
 
