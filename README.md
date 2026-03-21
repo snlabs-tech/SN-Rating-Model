@@ -1,36 +1,35 @@
 # SN Rating Model
-
 ![Python](https://img.shields.io/badge/Python-3.x-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen)
 
 ## Status
 
-This repository contains the **latest and actively maintained** SN Rating Model.
-Earlier implementations of the SN Rating Model are **deprecated** and kept only
-for historical reference. They will not receive new features or bug fixes.
+This repository contains the **latest and actively maintained** SN Rating Model.  
+Earlier implementations of the SN Rating Model are **deprecated** and kept only for historical reference; they will not receive new features or bug fixes.
 
 ## Overview
-The **SN Rating Model** uses generic, illustrative financial ratios and scoring bands that have not been probability‑of‑default (PD) validated or approved for regulatory capital or IFRS 9/CECL use. It is intended for educational, exploratory and prototype purposes only. Users may customize the configuration and calibrate the score‑to‑PD or grade mapping to align with their own internally validated models and governance frameworks.
+
+The **SN Rating Model** is a transparent, configurable corporate credit scoring engine that maps a 0–100 score to a rating grade from AAA to C via an Excel‑driven workflow. It uses generic, illustrative financial ratios and scoring bands that have **not** been probability‑of‑default (PD) validated or approved for regulatory capital or IFRS 9/CECL use. It is intended for educational, exploratory and prototype purposes only.
+
+Users can adjust ratio bands and factor weights in Excel and may calibrate the score‑to‑PD or grade mapping within their own validated frameworks and governance.
 
 The project supports two main use cases:
 
-* **Windows executable workflow** for non-technical users
-* **Python package implementation** for developers and analysts
+- **Windows executable workflow** for non‑technical users  
+- **Python source workflow** for developers and analysts
 
-The model reads Excel input data, applies scoring rules defined in configuration files, and generates a **rating report**.
+The model reads Excel input data, applies scoring rules defined in configuration files, and generates an Excel **rating report**.
 
 ---
 
-# Repository Structure
+## Repository structure
 
-## Repository Structure
-
-```
+```text
 SN-Rating-Model/
 ├── src/
 │   └── sn_rating/              # Core Python package
-│       ├── __init__.py         # Marks this as a Python package; can also expose package-level metadata
+│       ├── __init__.py         # Marks this as a Python package; can expose package-level metadata
 │       ├── config.py           # Configuration handling
 │       ├── datamodel.py        # Data structures and schemas
 │       ├── excel_io.py         # Excel input logic
@@ -62,45 +61,46 @@ SN-Rating-Model/
 ├── requirements.txt            # Python dependencies
 ├── README.md                   # Main project overview and usage
 ├── LICENSE                     # MIT license
-└── .gitignore                  # Tells Git which files/folders to ignore (e.g. venvs, outputs, temp files)
+└── .gitignore                  # Git ignore rules (venvs, outputs, temp files)
 ```
 
 ---
 
 # Windows Usage (No Python Required)
 
-The project supports a **Windows bundle workflow** that allows users to run the rating model without installing Python.
+The **Windows bundle workflow** lets you run the model without installing Python.
 
 ### Steps
 
-### 1. Navigate to
+### 1. Navigate to the bundle
 
 ```
 windows_bundle/
 ```
 
-### 2. Open the input file
+### 2. Edit input data
+Open:
 
 ```
 input/sn_rating_input.xlsx
 ```
+and enter the company data (see docs/user_manual.md for details on the metadata, fin_ratios, components, qual_factors, and peers_t0 sheets).
 
-Enter the company data.
-
-### 3. (Optional) Adjust scoring configuration
-
+### 3. (Optional) Adjust configuration
+Open:
 ```
 input/sn_rating_config.xlsx
 ```
 
-This file controls:
+This workbook controls:
 
-* ratio scoring bands
-* qualitative factor thresholds
-* scoring directions (higher the better, lower the better)
+- Ratio scoring bands
+- Ratio/family weights
+- Scoring directions (via higher_better / lower_better config sheets, as applicable)
 
 
 ### 4. Save and close Excel
+Make sure both input and config workbooks are saved and closed before running the model.
 
 ### 5. Run the model
 
@@ -109,6 +109,7 @@ Double-click:
 ```
 run_sn_rating.bat
 ```
+This calls `Run_SN_RatingModel.exe` with the configured Excel files.
 
 ### 6. View the results
 
@@ -118,7 +119,7 @@ After execution completes, open:
 windows_bundle/output/
 ```
 
-The folder will contain the generated **rating report**.
+The folder will contain the generated **rating report** Excel file.
 
 ---
 
@@ -126,14 +127,14 @@ The folder will contain the generated **rating report**.
 
 ## Requirements
 
-* Python 3.x
-* pandas
-* numpy
-* openpyxl
+- Python 3.x
+- Packages listed in `requirements.txt` (for example: `pandas`, `numpy`, `openpyxl`, `numexpr`, etc.)
 
-Install any additional dependencies listed in your environment setup.
+Install dependencies into a virtualenv or conda env:
 
----
+```bash
+pip install -r requirements.txt
+```
 
 # Installation
 
@@ -144,7 +145,7 @@ git clone https://github.com/snlabs-tech/SN-Rating-Model.git
 cd SN-Rating-Model
 ```
 
-Install the package locally:
+(Editable install is optional; you can also run directly from source.)
 
 ```bash
 pip install -e .
@@ -153,14 +154,14 @@ pip install -e .
 ---
 
 # Running the Model
-
+The recommended source‑based entry point is a small script (e.g. `run_sn_rating.py`) that calls the Excel‑driven runner and writes the report to `output/`.
 From the project root:
 
 ```bash
 python -m sn_rating
 ```
 
-This will execute the rating model using the Excel files located in the **windows_bundle/input** directory.
+This will execute the rating model using the Excel files in `windows_bundle/input/` (or whichever paths you configure in `run_sn_rating.py`) and write the report into an `output/` directory.
 
 ---
 
@@ -179,7 +180,7 @@ Key components include:
 Handles loading and validation of configuration data from:
 
 ```
-sn_rating_config.xlsx
+windows_bundle/input/sn_rating_config.xlsx
 ```
 
 ---
@@ -188,26 +189,31 @@ sn_rating_config.xlsx
 
 Contains the **core rating logic**, including:
 
-* financial ratio scoring
-* qualitative factor scoring
-* weighted score aggregation
-* final rating calculation
-
+* Financial ratio scoring
+* Qualitative factor scoring
+* Weighted score aggregation
+* Final rating calculation
+* Application of hard‑stops, sovereign cap, and peer positioning (if enabled) 
 ---
-
 ### `excel_io.py`
 
 Responsible for:
 
-* reading Excel inputs
-* validating input structures
-* exporting intermediate results if needed
+* Reading Excel inputs
+* Validating input structures
+* Exporting intermediate results if needed
 
 ---
 
 ### `report.py`
 
 Generates the **final rating report**, typically written to the `output/` directory.
+
+`run_from_excel.py`
+Implements the Excel‑driven workflow:
+- Loads configuration and input workbooks
+- Calls the rating model
+- Returns structured results that your runner (or the .exe) can write to Excel
 
 ---
 
@@ -216,69 +222,77 @@ Generates the **final rating report**, typically written to the `output/` direct
 ## Input Data
 
 ```
-sn_rating_input.xlsx
+windows_bundle/input/sn_rating_input.xlsx
 ```
 
-Typical contents include:
-
-* company metadata
-* financial ratios
-* qualitative factors
-* peer comparison data
+Contains sheets such as:
+- `metadata` – Company identifiers and model switches (sovereign rating/outlook, enable flags, quantitative/qualitative weights).
+- `fin_ratios` – Financial ratios or base financials used in quantitative scoring (model currently uses T0; prior years can be kept for reference).
+- `components` – Altman‑Z input components when Altman‑Z is not directly provided as a ratio.
+- `qual_factors` – 1–5 expert scores for qualitative dimensions.
+- `peers_t0` – Peer company data for T0, used for peer comparison tables.
+See `docs/user_manual.md` for a detailed field‑by‑field description.
 
 ---
 
 ## Configuration
 
 ```
-sn_rating_config.xlsx
+windows_bundle/input/sn_rating_config.xlsx
 ```
 
 Defines model parameters including:
 
-* scoring thresholds
-* scoring directions
-* rating band definitions
+* Ratio scoring bands / thresholds
+* Ratio and family weights
+* Direction assignments (`higher_better` vs `lower_better`)
+The current version keeps qualitative mappings (1–5 → points) and score→grade cutoffs in code rather than in Excel.
 
 ---
 
 # Customization
 
-The model is designed to be **configurable via Excel**.
+The model is designed to be **configurable via Excel**for most practical adjustments.
 
-Users can safely adjust:
+You can safely adjust:
+- Ratio scoring bands and breakpoints
+- Ratio and category weights
+- Direction assignments for ratios (higher vs lower is better)
+- Quantitative vs qualitative block weights (in the metadata sheet of the input workbook)
+- Sovereign and peer features via TRUE/FALSE flags on metadata
 
-* scoring thresholds
-* ratio bands
-* qualitative scoring ranges
-
-However, **structural changes** such as:
-
-* removing required columns
-* renaming sheets
-* changing expected formats
-
-may require **updates to the Python source code**.
+Avoid changing:
+- Sheet names
+- Required column headers
+- Expected data types and ranges
+Structural changes (e.g. adding/removing ratios, changing sheet layouts, modifying qualitative mappings or grade cutoffs) may require updates to the Python source.
 
 ---
 
 # Output
 
-After running the model, results are written to:
+For the Windows bundle, results are written to:
 
 ```
 windows_bundle/output/
 ```
+For the Python workflow, results are written to:
+```
+output/
+```
+(depending on how run_sn_rating.py is configured).
 The main output is an Excel rating report that includes:
 - The final alphanumeric rating (e.g. BBB, BB+) and total score
-- A one‑page A4‑style summary of key ratios, qualitative factors and peer information
+- Outlook (e.g. Stable, Positive, Negative)
+- A one‑page A4‑style summary of key ratios, qualitative factors
+- Peer comparison tables (if peers are provided)
 - A log / calculations sheet showing the detailed scoring steps used to derive the rating
 
 ---
 
 # License
 
-This project is licensed under the terms described in the **LICENSE** file.
+This project is licensed under the terms described in the **LICENSE** file (MIT).
 
 ---
 
