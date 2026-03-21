@@ -28,25 +28,24 @@ The model reads Excel input data, applies scoring rules defined in configuration
 
 ```
 SN-Rating-Model/
-│
 ├── src/
 │   └── sn_rating/              # Core Python package
-│       ├── __init__.py
-│       ├── __main__.py         # Enables `python -m sn_rating`
+│       ├── __init__.py         # Marks this as a Python package; can also expose package-level metadata
 │       ├── config.py           # Configuration handling
 │       ├── datamodel.py        # Data structures and schemas
-│       ├── excel_io.py         # Excel input/output logic
+│       ├── excel_io.py         # Excel input logic
 │       ├── helpers.py          # Utility functions
 │       ├── model.py            # Rating model logic
-│       ├── report.py           # Report generation
+│       ├── report.py           # Report generation helpers
 │       └── run_from_excel.py   # Entry point for Excel-based runs
 │
 ├── windows_bundle/             # Standalone Windows execution package
-│   ├── run_sn_rating.bat
+│   ├── run_sn_rating.bat       # Batch wrapper around the .exe
+│   ├── Run_SN_RatingModel.exe  # Packaged Windows executable
 │   ├── input/
-│   │   ├── sn_rating_input.xlsx
-│   │   └── sn_rating_config.xlsx
-│   └── output/                 # Generated at runtime
+│   │   ├── sn_rating_input.xlsx   # Company input template
+│   │   └── sn_rating_config.xlsx  # Configuration workbook
+│   └── output/                 # Created at runtime, holds rating reports
 │
 ├── docs/                       # Methodology and workflow documentation
 │   ├── Hardstop_Rating_Workflow.md
@@ -54,16 +53,17 @@ SN-Rating-Model/
 │   ├── Quantitative_Factors_and_Ratio_Definitions.md
 │   ├── Rating–Outlook Workflow.md
 │   ├── Sovereign Cap Workflow.md
-│   └── windows_bundle.md
+│   ├── windows_bundle.md
+│   └── user_manual.md
 │
-├── notebooks/                  # Exploratory analysis
+├── notebooks/                  # Exploratory analysis and demos
 │   └── sn_rating.ipynb
 │
-├── .gitignore
-├── LICENSE
-└── README.md
+├── requirements.txt            # Python dependencies
+├── README.md                   # Main project overview and usage
+├── LICENSE                     # MIT license
+└── .gitignore                  # Tells Git which files/folders to ignore (e.g. venvs, outputs, temp files)
 ```
-
 
 ---
 
