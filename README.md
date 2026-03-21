@@ -158,7 +158,7 @@ The recommended source‑based entry point is a small script (e.g. `run_sn_ratin
 From the project root:
 
 ```bash
-python -m sn_rating
+python run_sn_rating.py
 ```
 
 This will execute the rating model using the Excel files in `windows_bundle/input/` (or whichever paths you configure in `run_sn_rating.py`) and write the report into an `output/` directory.
