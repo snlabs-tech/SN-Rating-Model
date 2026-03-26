@@ -1,0 +1,2 @@
+[console_scripts]
+sn-rating-run = sn_rating.run_sn_rating:main

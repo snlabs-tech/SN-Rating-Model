@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sn-rating-model"
+version = "0.1.0"
+description = "Transparent, configurable corporate credit scoring engine with Python core and Excel UI."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [
+  { name = "Srini Narayanan" },
+]
+dependencies = [
+  "pandas",
+  "openpyxl",
+  "xlsxwriter",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+sn-rating-run = "sn_rating.run_sn_rating:main"
+
