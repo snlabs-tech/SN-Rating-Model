@@ -31,3 +31,5 @@ windows_bundle/output/
 # OS junk
 .DS_Store
 Thumbs.db
+windows_bundle/input/~$sn_rating_config.xlsx
+windows_bundle/input/~$sn_rating_input.xlsx
