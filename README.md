@@ -28,6 +28,11 @@ The model reads Excel input data, applies scoring rules defined in configuration
 ```text
 SN-Rating-Model/
 ├── src/
+│   ├── input/
+│   │   ├── sn_rating_input.xlsx   # Company input template
+│   │   └── sn_rating_config.xlsx  # Configuration workbook
+│   └── run_sn_rating.py        # python file for CLI run
+│   └── output/                 # Created at runtime, holds rating reports
 │   └── sn_rating/              # Core Python package
 │       ├── __init__.py         # Marks this as a Python package; can expose package-level metadata
 │       ├── config.py           # Configuration handling
