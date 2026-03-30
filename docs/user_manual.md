@@ -1,311 +1,149 @@
-# SN Rating Model – User Manual
+# SN Corporate Rating Model – User Manual
 
-This guide explains how to use the SN Rating Model end‑to‑end, from editing the two Excel files to running the engine and reading the output.
-
----
-
-## 1. Files and folders
-
-From the repository root, the key folders and files are:
-
-- `windows_bundle/`  
-  Self‑contained folder for running the model on Windows without installing Python.
-
-- `windows_bundle/input/sn_rating_input.xlsx`  
-  Data input template (company metadata, financial ratios, qualitative factors, peers).
-
-- `windows_bundle/input/sn_rating_config.xlsx`  
-  Configuration template (ratio bands, score, factor weights, directions).
-
-- `windows_bundle/Run_SN_RatingModel.exe`  
-  Windows executable that runs the SN Rating Model engine (used by the `.bat` file).
-
-- `windows_bundle/run_sn_rating.bat`  
-  Batch script that calls `Run_SN_RatingModel.exe` with the bundled input and config files.
-
-- `windows_bundle/output/`  
-  Created at runtime; contains the generated rating report when you run the `.exe`.
-
-If you run the model via Python source instead of the Windows bundle, you will typically use a small runner script such as:
-
-- `run_sn_rating.py` (at repo root or under `src/`)  
-  Python script that imports `sn_rating.run_from_excel.run_from_excel_with_bands(...)`, then writes the Excel report to an `output/` folder.
+This short manual explains how to use the SN Corporate Rating Model at a practical level and points you to the detailed methodology and configuration documentation.
 
 ---
 
-## 2. End‑to‑end workflow (Python source)
+## 1. What this tool is (and is not)
 
-This assumes you have a conda/virtualenv with the required packages installed and a runner script `run_sn_rating.py` that calls the model and writes the Excel.
+- The model is a transparent, rules‑based framework that combines quantitative financial ratios and qualitative factors into an internal issuer rating and outlook.
+- It is intended for educational, exploratory, and internal analytical use; it is **not** a PD‑calibrated, rating‑agency‑validated model.
+- The default ratios, bands, and rating scale are **illustrative**. Users are expected to define their own configuration (ratios, bands, and score‑to‑rating scale) and validate it against their own portfolio and governance.
 
-1. Create/activate your environment and install dependencies (for example via `requirements.txt`).
-2. From the repo root, open `src/input/sn_rating_input.xlsx` and enter your company data (see section 4).
-3. Optionally open `src/input/sn_rating_config.xlsx` to customize ratio bands, weights and other settings (see section 5).
-4. Save and close both Excel files.
-5. From the repo root (or `src/`, depending on where you place the script), run:
-   ```bash
-   python run_sn_rating.py
-   ```
-6. After the script finishes, open the output/ folder (where `run_sn_rating.py` writes) and inspect the generated rating report Excel file.
-The exact output path and file name are defined in run_sn_rating.py (for example, `./output/<issuer_id>_<issuer_name>_Corporate_Credit_Rating_Report.xlsx`).
+For the full methodology, see:  
+`docs/SN Corporate Rating Model – Methodology.md`.
 
 ---
 
-## 3. End-to-end workflow (Windows bundle, no Python install)
+## 2. Files and folders you will touch
 
-If you prefer the packaged Windows bundle:
+From the cloned repository, the key items are:
 
-1. Navigate to `windows_bundle/`.
-2. Open `input/sn_rating_input.xlsx` and enter your company data (section 4).
-3. Optionally edit `input/sn_rating_config.xlsx` to adjust bands, weights, and other settings (section 5).
-4. Save and close both Excel files.
-5. Ensure `Run_SN_RatingModel.exe`is available alongside `run_sn_rating.bat` in the `windows_bundle/` folder.
-6. Double-click `run_sn_rating.bat` (this calls `Run_SN_RatingModel.exe`).
-7. When it finishes, open `windows_bundle/output/` and view the generated rating report workbook.
+- `input/`
+  - `sn_rating_input.xlsx` – main input workbook (issuer data, ratios, qualitative factors, peers, metadata).
+  - `sn_rating_config.xlsx` – configuration workbook (score‑to‑rating, ratio bands, distress bands, qualitative scale, weights).
 
----
+- `output/`
+  - Populated at runtime with Excel rating reports (e.g. `<Issuer_Name>_Corporate_Credit_Rating_Report.xlsx`).
 
-## 4. Editing `sn_rating_input.xlsx` (company data)
+- `windows_bundle/`
+  - For Windows users who do *not* want to install or run Python.
+  - Contains its own `input/` and `output/` folders plus a batch file and `.exe` launcher.
 
-This file, organised into several sheets, holds case-specific data: everything that changes from company to company.  
-
-### 4.1 Sheet overview
-
-Typical sheets in the input workbook:
-
-- `metadata` – Company profile and high-level model switches  
-- `fin_ratios` – Financial ratios (or base financials) for quantitative scoring  
-- `components` – Input fields used to calculate the Altman‑Z score when the Altman‑Z ratio itself is not provided  
-- `qual_factors` – 1–5 expert scores for qualitative dimensions  
-- `peers_t0` – Peer company data for the current horizon (T0)  
-
-> The exact sheet names/layout should be kept as in the template.
+- `run_sn_rating.py`
+  - Python script entry point for running the model from the cloned repo.
 
 ---
 
-### 4.2 `metadata` – company info and model switches
+## 3. Quick start – Python users
 
-This sheet holds identifiers and fields that affect the rating logic.
+Use this if you are comfortable with Python and running scripts from a terminal.
 
-**Typical fields:**
+### 3.1 Setup
 
-- `name`, `country` – Company identifiers  
-- `sovereign_rating`, `sovereign_outlook` – Country reference  
-- `enable_peer_positioning`, `enable_hardstops`, `enable_sovereign_cap` – Feature flags (TRUE/FALSE)  
+1. Clone or download the repository.
+2. (Optional) Create and activate a virtual environment.  
+3. From the project root, install dependencies:
 
+```bash
+pip install -r requirements.txt
+``` 
 
-**Edit:**
+4. Prepare `input/sn_rating_input.xlsx`:
+   - Fill `metadata`, `fin_ratios`, `components`, `qual_factors`, and `peers_t0` as per the methodology.
 
-- Set `name`, `country`
-- Provide `sovereign_rating` and `sovereign_outlook`
-- Set `enable_*` flags (`TRUE` / `FALSE`)
+5. (Optional) Adjust `input/sn_rating_config.xlsx`:
+   - `score_to_rating` – rating scale.
+   - `qual_score_scale` – mapping 1–5 to 0–100.
+   - `lower_better` / `higher_better` – ratio bands and directions.
+   - `distress_bands` – distress thresholds.
+   - `others` – `MAX_DISTRESS_NOTCHES`, `quantitative_weight`, `qualitative_weight`.
 
+If a sheet or entry is missing, the model automatically falls back to built‑in defaults.
 
-**Effect:**
+### 3.2 Run the model
 
-- Drives report labelling.
-- Controls caps, hard‑stops and peer features.
-- If the enable_* flags are left blank, the corresponding features are ignored and treated as FALSE by default.
-
----
-
-### 4.3 `fin_ratios` – financial ratios
-
-This sheet contains numeric inputs for the quantitative block.
-
-**Edit:**
-
-- Fill in ratio values (or base financials) for T0 (current year).
-- You can optionally maintain T1, T2 (prior years such as FY2024, FY2023) for your own reference, but the model currently uses only T0 in the rating calculation.
-
-**Effect:**
-
-- Drives the quantitative score  
-- Ratios are mapped to bands and aggregated via weights  
-
----
-
-### 4.4 `components` – Altman‑Z inputs
-
-This sheet holds the input items needed to calculate the Altman‑Z score when the Altman‑Z ratio itself is not supplied on `fin_ratios`.
-
-**Edit:**
-
-- Enter the individual financial statement items required by the Altman‑Z formula (e.g. working capital, retained earnings, EBIT, market value of equity, total assets, total liabilities) when you do not provide a pre‑computed Altman‑Z ratio.
-
-**Effect:**
-
-- If Altman‑Z is missing on `fin_ratios`, the model uses these components to compute Altman‑Z internally.
-- If Altman‑Z is already provided on `fin_ratios`, the `components` sheet is ignored for that ratio.
-
-
-### 4.5 `qual_factors` – qualitative assessments (1–5)
-
-Typical dimensions:
-
-- Industry risk  
-- Market position  
-- Revenue diversification and stability  
-- Business model resilience  
-- Management quality and governance  
-- Financial policy  
-- Sovereign / legal environment  
-- Transparency and information quality  
-
-**Edit:**
-
-- Enter scores from 1 (low) to 5 (high)
-
-**Effect:**
-
-- Drives qualitative scoring block  
-- Impact controlled by `qualitative_weight`  
-
----
-
-### 4.6 `peers_t0` – peer comparisons
-
-**Edit:**
-
-- Enter peer names and ratios for T0
-
-**Effect:**
-
-- Used for comparison tables in the report  
-- Does not affect rating unless extended in code  
-
----
-
-### 4.7 What not to change
-
-To avoid breaking the model:
-
-- Do not modify sheet names  
-- Do not modify column headers  
-- Do not change layout or structure  
-
----
-
-## 5. Editing `sn_rating_config.xlsx` (model configuration)
-
-This file controls model behavior without changing Python code.
-
----
-
-### 5.1 Ratio scoring bands (thresholds)
-
-**Edit:**
-
-- Update numeric breakpoints / bands for each ratio.
-
-**Effect:**
-
-- Changes how ratio values map to scores.
-- Only ratios that have bands defined here are considered in the model; any ratio present in the input but missing bands in the config is ignored.
-
----
-
-### 5.2 Ratio and factor weights
-
-**Edit:**
-
-- Adjust weights for individual ratios or ratio categories/families.
-
-**Effect:**
-
-- Changes each metric’s contribution to the quantitative score and, via the quantitative block weight, to the final rating.
-
----
-
-### 5.3 Scoring directions
-
-**Edit:**
-
-- Place each ratio in the appropriate direction sheet (for example `higher_better` or `lower_better`), according to whether higher or lower values are preferable.
-
-**Effect:**
-
-- Ensures the model interprets each ratio correctly (e.g. higher coverage is good, higher leverage is bad).
-- If a ratio is not assigned to the correct direction sheet, it will not be scored as intended and may be ignored by the model.
-
----
-
-### 5.4 Qualitative mappings (1–5 → points)
-
-- Defined in Python (not editable in Excel)
-
-**Effect:**
-
-- Mapping is fixed, but impact is controlled via weights  
-
----
-
-### 5.5 Rating band definitions (score → grade)
-
-- Defined in Python (not editable in Excel)
-
-**Effect:**
-
-- Grade thresholds are fixed  
-
----
-
-### 5.6 What not to change
-
-- Sheet names  
-- Column headers  
-- Data types  
-
----
-
-## 6. Feature-by-feature: what to edit
-
-### 6.1 Change how ratios influence the rating
-
-- Edit ratio bands and weights in `sn_rating_config.xlsx`
-
-**Effect:**  
-Changes sensitivity to financial metrics  
-
----
-
-### 6.2 Change quantitative vs qualitative balance
-
-- Edit `quantitative_weight` and `qualitative_weight` in `metadata`
-
-**Effect:**  
-Shifts importance between financials and qualitative inputs  
-
----
-
-### 6.3 Toggle model features
-
-- Edit:
-  - `enable_hardstops`
-  - `enable_sovereign_cap`
-  - `enable_peer_positioning`
-
-**Effect:**  
-Activates or deactivates those mechanisms  
-
----
-
-### 6.4 Reuse configuration for another company
-
-- Update only `sn_rating_input.xlsx`
-- Leave config unchanged
-
-**Effect:**  
-Same methodology applied to a new company  
-
----
-
-## 7. Summary
-
-- `sn_rating_input.xlsx` → company-specific data  
-- `sn_rating_config.xlsx` → model methodology  
-
-Run either:
+From the project root:
 
 ```bash
 python run_sn_rating.py
+```
+
+What happens:
+
+- Inputs are read from `input/sn_rating_input.xlsx` and `input/sn_rating_config.xlsx`.
+- The rating model runs using the configuration and methodology documented in the Methodology file.
+- The main report is written to `output/<Issuer_Name>_Corporate_Credit_Rating_Report.xlsx`.
+- Quantitative and qualitative logs for T0 are printed to the console (value, score, weight, peer info, distress notches).
+
+For more detail on the script and workflow, see:  
+`docs/Running the model.md`.
+
+---
+
+## 4. Quick start – Windows bundle (no Python)
+
+Use this if you are on Windows and prefer a double‑clickable solution.
+
+### 4.1 One‑time setup
+
+1. In the cloned repo, open `windows_bundle/Windows bundle download.md` and follow the Google Drive link.
+2. Download `Run_SN_RatingModel.exe` and copy it into the `windows_bundle` folder next to `run_sn_rating.bat`.
+
+Folder structure:
+
+```text
+SN-Rating-Model/
+├── windows_bundle/
+│   ├── run_sn_rating.bat
+│   ├── Run_SN_RatingModel.exe
+│   ├── input/
+│   │   ├── sn_rating_input.xlsx
+│   │   └── sn_rating_config.xlsx
+│   └── output/
+```
+
+### 4.2 Prepare inputs
+
+1. Open `windows_bundle/input/sn_rating_input.xlsx` and fill in the same sheets as for the Python run (`metadata`, `fin_ratios`, `components`, `qual_factors`, `peers_t0`).
+2. (Optional) Adjust `windows_bundle/input/sn_rating_config.xlsx` if you want to override the default configuration.
+
+### 4.3 Run the model
+
+1. Double‑click `run_sn_rating.bat` inside `windows_bundle` (or run it from Command Prompt).
+2. The batch file will call `Run_SN_RatingModel.exe`, which:
+   - Reads the Excel inputs from `windows_bundle/input/`.
+   - Runs the same methodology as the Python script.
+   - Writes the Excel rating report into `windows_bundle/output/`.
+
+Open the report in `windows_bundle/output/` to view the results.
+
+---
+
+## 5. Understanding and customising the model
+
+If you plan to use the tool beyond a one‑off demo, you should review and likely customise:
+
+- **Ratios used** (which metrics appear in `fin_ratios` and `peers_t0`).
+- **Ratio bands and directions** (`lower_better` / `higher_better` sheets in `sn_rating_config.xlsx`).
+- **Qualitative scale and factor definitions** (`qual_score_scale` and `qual_factors` sheet).
+- **Score‑to‑rating scale** (`score_to_rating` in `sn_rating_config.xlsx`).
+- **Weights and distress limits** (`quantitative_weight`, `qualitative_weight`, `MAX_DISTRESS_NOTCHES` in `others`).
+
+The detailed logic for each of these is documented in:  
+`docs/SN Corporate Rating Model – Methodology.md` (see the “Configuration methodology” section).
+
+---
+
+## 6. Where to find more detail
+
+- **Methodology and configuration**  
+  `docs/SN Corporate Rating Model – Methodology.md` – full description of inputs, configuration, quantitative and qualitative blocks, distress/hardstops, sovereign cap, and rating/outlook derivation.
+
+- **How to run the model**  
+  `docs/Running the model.md` – step‑by‑step instructions for:
+  - Running via Python (`run_sn_rating.py`).  
+  - Running via the Windows bundle (`run_sn_rating.bat` + `Run_SN_RatingModel.exe`).
+
+Use this User Manual as your high‑level guide; consult the Methodology and Running documents when you need technical or configuration details.
 ```
