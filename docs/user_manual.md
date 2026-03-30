@@ -38,8 +38,8 @@ If you run the model via Python source instead of the Windows bundle, you will t
 This assumes you have a conda/virtualenv with the required packages installed and a runner script `run_sn_rating.py` that calls the model and writes the Excel.
 
 1. Create/activate your environment and install dependencies (for example via `requirements.txt`).
-2. From the repo root, open `windows_bundle/input/sn_rating_input.xlsx` and enter your company data (see section 4).
-3. Optionally open `windows_bundle/input/sn_rating_config.xlsx` to customize ratio bands, weights and other settings (see section 5).
+2. From the repo root, open `src/input/sn_rating_input.xlsx` and enter your company data (see section 4).
+3. Optionally open `src/input/sn_rating_config.xlsx` to customize ratio bands, weights and other settings (see section 5).
 4. Save and close both Excel files.
 5. From the repo root (or `src/`, depending on where you place the script), run:
    ```bash
