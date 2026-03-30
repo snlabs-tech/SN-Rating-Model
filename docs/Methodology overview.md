@@ -8,7 +8,7 @@ This document describes the methodology implemented in the SN Corporate Rating M
 
 The model produces a long-term **issuer credit rating** and **outlook** for corporates based on:
 
-- **Quantitative** financial ratios, including the Altman Z-score and coverage/leverage metrics. 
+- **Quantitative** financial ratios, including coverage/leverage/profitability metrics and the Altman Z-score. 
 - **Qualitative** factors covering business profile, governance, and financial policy.
 - **Peer positioning**(optional), comparing the issuer’s key ratios against a peer group. 
 - **Distress / hardstops**(optional), which can notch down the rating when distress indicators breach configured thresholds. 
@@ -20,9 +20,8 @@ The model is implemented in Python with Excel as the primary user interface for 
 
 The model and Excel report can be run in several ways:
 
-- **Notebook / Python script** – Call `run_from_excel_with_bands()` and then `generate_corporate_rating_report(...)`; the report is written to the `output` folder.
+- **Python script** – Call `run_from_excel_with_bands()` and then `generate_corporate_rating_report(...)`; the report is written to the `output` folder.
 - **Windows batch file** – Run the provided `.bat` file, which executes the model end-to-end and produces the Excel report in the `output` folder.
-- **Packaged executable** – Run the packaged `.exe`, which uses the same logic and writes the Excel report to the `output` folder next to the executable.
 
 ---
 ## 2. Inputs and Data Structure
@@ -31,16 +30,19 @@ The model and Excel report can be run in several ways:
 
 The model uses two main Excel workbooks stored in the `input` folder:
 
-1. `sn_rating_config.xlsx`  
+1. `sn_rating_config.xlsx`
+   - The file contains the following sheets with default configuration used by the model, which can be customised.
+   - This excel file will override the built-in-default configuration within the rating model.
    - Band tables for financial ratios (sheets: `lower_better`, `higher_better`).  
-   - Configuration for ratio families/buckets and direction (higher is better / lower is better). 
+   - Configuration for ratio families/buckets and direction (higher is better / lower is better).
+   - and optional overall `quantitative_weight` and `qualitative_weight` (e.g. 0.7 / 0.3) that override the automatic weight derivation.
 
-2. `sn_rating_input.xlsx`  
+3. `sn_rating_input.xlsx`  
    - `fin_ratios`: financial ratios for up to three periods (`t0`, `t1`, `t2`) plus per-ratio weights.  
    - `components`: balance sheet and P&L components used to compute Altman Z.  
    - `qual_factors`: qualitative factor values (e.g. 1–5 scale), weights, and buckets.  
    - `peers_t0`: peer group ratios per metric at `t0`.  
-   - `metadata`: issuer name, sovereign rating/outlook, feature flags (peer positioning, hardstops, sovereign cap), and optional overall `quantitative_weight` and `qualitative_weight` (e.g. 0.7 / 0.3) that override the automatic weight derivation.
+   - `metadata`: issuer name, sovereign rating/outlook, feature flags (peer positioning, hardstops, sovereign cap)
 
 ### 2.2 Datamodel
 
