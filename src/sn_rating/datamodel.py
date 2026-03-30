@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 
@@ -12,7 +12,7 @@ class QuantInputs:
     components_t1: Dict[str, float]                    # Prior year component scores
     components_t2: Dict[str, float]                    # Two years prior component scores
     peers_t0: Dict[str, List[float]]                   # Peer group percentiles by ratio
-
+    ratio_weights: Dict[str, float] = field(default_factory=dict)
 
 # Qualitative inputs: Management/business risk factors (2-year history)
 @dataclass

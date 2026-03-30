@@ -6,11 +6,11 @@ from sn_rating.report import generate_corporate_rating_report    # Build Excel r
 
 def print_ratio_log_cli(res):
     """Pretty-print quantitative ratio log for T0 to the console."""
-    
+
     print("\n=== Ratio log (T0) ===")
     header = (
         f"{'Name':25} {'Value':>10} {'Score':>8} {'Weight':>8} "
-        f"{'PeerAvg':>10} {'PeerFlg':>8} {'Distress':>9}"
+        f"{'PeerAvg':>10} {'PeerFlg':>8}"
     )
     print(header)
     print("-" * len(header))
@@ -25,23 +25,21 @@ def print_ratio_log_cli(res):
         weight = row.get("Weight")
         peer_avg = row.get("PeerAvg")
         peer_flag = row.get("PeerFlag") or ""
-        distress = row.get("DistressNotches", 0)
 
         print(
-            f"{name:25}"                                   # Left-align name in 25 chars
+            f"{name:25}"
             f"{(f'{value:.2f}' if isinstance(value, (int, float)) else (str(value) if value is not None else '')):>10}"
             f"{(f'{score:.2f}' if isinstance(score, (int, float)) else ''):>8}"
             f"{(f'{weight:.2f}' if isinstance(weight, (int, float)) else ''):>8}"
             f"{(f'{peer_avg:.2f}' if isinstance(peer_avg, (int, float)) else ''):>10}"
             f"{peer_flag:>8}"
-            f"{int(distress) if isinstance(distress, (int, float)) else 0:>9}"
         )
 
 
 def print_qual_log_cli(res):
     """Pretty-print qualitative factor log for T0 to the console, if present."""
-    
-    if not getattr(res, "qual_log", None):                 # If model didn't populate qual_log
+
+    if not getattr(res, "qual_log", None):
         return
 
     print("\n=== Qualitative factors (T0) ===")
@@ -57,7 +55,7 @@ def print_qual_log_cli(res):
         bucket = row.get("Bucket")
 
         print(
-            f"{name:35}"                                   # Left-align name in 35 chars
+            f"{name:35}"
             f"{(str(value) if value is not None else ''):>8}"
             f"{(f'{score:.2f}' if isinstance(score, (int, float)) else ''):>8}"
             f"{(f'{weight:.2f}' if isinstance(weight, (int, float)) else ''):>8}"
@@ -67,7 +65,7 @@ def print_qual_log_cli(res):
 
 def main():
     """Run model from Excel, generate report, and print CLI logs."""
-    
+
     res = run_from_excel_with_bands()                     # 1) Read Excel → run RatingModel
     out_file = generate_corporate_rating_report(res)      # 2) Build Excel report workbook
     print_ratio_log_cli(res)                              # 3) Dump quantitative log to stdout
@@ -75,5 +73,10 @@ def main():
     print(f"\nReport generated successfully: {out_file}") # 5) Show output path
 
 
-if __name__ == "__main__":                                # Script entry point
+from sn_rating.config import load_config
+
+if __name__ == "__main__":
+    cfg = load_config()
+    print("DEBUG SCORE_TO_RATING:", cfg["SCORE_TO_RATING"])
+    # your existing entry point, e.g.
     main()

@@ -3,9 +3,10 @@ from typing import Literal, Optional, List
 import warnings
 import pandas as pd
 
-from sn_rating.helpers import input_path, BandConfig
-from sn_rating.datamodel import QuantInputs, QualInputs
+from sn_rating.config import load_config, logger
+from sn_rating.helpers import BandConfig, input_path
 from sn_rating.model import RatingModel
+from sn_rating.datamodel import QuantInputs, QualInputs
 from sn_rating.excel_io import (
     load_metadata_excel,
     components_col_to_dict,
@@ -42,19 +43,17 @@ def _infer_time_labels(df: pd.DataFrame, drop_cols: List[str] = None) -> List[st
 def run_from_excel_with_bands(
     horizon: Literal["t0", "t1", "t2"] = "t0",
 ):
-    """
-    High-level runner for the V3 model.
-
-    Excel files are taken from the project root input folder:
-      - input/sn_rating_config.xlsx (bands/config)
-      - input/sn_rating_input.xlsx (user-edited input)
-    """
     # Resolve input file paths
     rating_input_file = input_path("sn_rating_input.xlsx")
     config_file = input_path("sn_rating_config.xlsx")
 
-    # Load band configuration (score tables) and global metadata
-    bands = BandConfig(config_path=config_file)
+    # NEW: load merged config dict from Excel (+ defaults)
+    config = load_config(config_file)
+
+    # NEW: build bands from that dict, not from config_path
+    bands = BandConfig(config=config)
+
+    # Existing: metadata, fin/qual/peers loading, weights, etc.
     meta = load_metadata_excel(rating_input_file)
 
     raw_name = str(meta.get("name", "")).strip()
@@ -145,7 +144,7 @@ def run_from_excel_with_bands(
     )
 
     # Instantiate model with issuer name and band config
-    model = RatingModel(cp_name, bands)
+    model = RatingModel(cp_name, bands, config_excel_path=config_file)
 
     # Feature flags from metadata (with sane defaults)
     enable_hardstops = meta["enable_hardstops"]
@@ -169,5 +168,4 @@ def run_from_excel_with_bands(
         qual_weights=qual_weights,
         qual_buckets=qual_buckets,
     )
-
-    return res                                     # RatingOutputs dataclass
+    return res                                    # RatingOutputs dataclass

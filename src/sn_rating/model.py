@@ -1,7 +1,9 @@
-import math
-from typing import Dict, List, Optional, Tuple
+# sn_rating/model.py
 
-from .config import DISTRESS_BANDS, MAX_DISTRESS_NOTCHES, logger
+import math
+from typing import Dict, List, Optional, Tuple, Any
+
+from .config import load_config, logger
 from .datamodel import QuantInputs, QualInputs, RatingOutputs
 from .helpers import (
     BandConfig,
@@ -23,9 +25,16 @@ from .helpers import (
 class RatingModel:
     """Main engine: compute full rating from quantitative & qualitative inputs."""
 
-    def __init__(self, cp_name: str, bands: BandConfig):
-        self.cp_name = cp_name                  # Issuer / counterparty name
-        self.bands = bands                      # BandConfig instance (ratio scoring tables)
+    def __init__(
+        self,
+        cp_name: str,
+        bands: BandConfig,
+        config_excel_path: Optional[str] = None,
+    ):
+        self.cp_name = cp_name
+        self.bands = bands
+        self.config: Dict[str, Any] = load_config(config_excel_path)
+        
 
     def _ensure_altman_z(self, fin: Dict[str, float], comps: Dict[str, float]) -> Optional[float]:
         """Ensure fin['altman_z'] exists; compute from components if possible."""
@@ -217,7 +226,7 @@ class RatingModel:
         )
 
     # --------- QUALITATIVE BLOCK ---------
-
+    
     def compute_qualitative(
         self,
         ql: QualInputs,
@@ -225,11 +234,12 @@ class RatingModel:
         qual_buckets: Dict[str, str],
     ) -> Tuple[float, int, List[Dict[str, object]]]:
         """Compute weighted qualitative score and log."""
-        
         total_weighted = 0.0
         total_weight = 0.0
         n_qual_items = 0
         qual_log: List[Dict[str, object]] = []
+
+        qual_scale = self.config["QUAL_SCORE_SCALE"]
 
         for name, val in ql.factors_t0.items():
             # Skip missing / NaN values
@@ -241,7 +251,7 @@ class RatingModel:
                 )
                 continue
 
-            s = score_qual_factor_numeric(val)           # Map 1–5 → 0–100 via QUAL_SCORE_SCALE
+            s = score_qual_factor_numeric(val, qual_scale)
             if s is None:
                 logger.info(
                     "%s-Qual: unknown or out-of-range factor %s=%s",
@@ -251,8 +261,8 @@ class RatingModel:
                 )
                 continue
 
-            w = float(qual_weights.get(name, 1.0))       # Factor weight (default=1)
-            bucket = qual_buckets.get(name, "OTHERS")    # Category for reporting
+            w = float(qual_weights.get(name, 1.0))
+            bucket = qual_buckets.get(name, "OTHERS")
 
             total_weighted += w * s
             total_weight += w
@@ -285,40 +295,44 @@ class RatingModel:
         self,
         fin: Dict[str, float],
     ) -> Tuple[int, Dict[str, float], Dict[str, int]]:
+        """Compute total distress notches and per-metric details."""
+        distress_bands = self.config["DISTRESS_BANDS"]
+        max_notches = self.config["MAX_DISTRESS_NOTCHES"]
+
         total_notches = 0
         details: Dict[str, float] = {}
         per_metric_notches: Dict[str, int] = {}
-    
+
         ic = fin.get("interest_coverage")
         if ic is not None:
-            for threshold, notches in DISTRESS_BANDS["interest_coverage"]:
-                if ic < threshold:
+            for threshold, notches in distress_bands.get("interest_coverage", []):
+                if ic <= threshold:
                     total_notches += notches
                     details["interest_coverage"] = ic
                     per_metric_notches["interest_coverage"] = notches
                     break
-    
+
         dscr = fin.get("dscr")
         if dscr is not None:
-            for threshold, notches in DISTRESS_BANDS["dscr"]:
-                if dscr < threshold:
+            for threshold, notches in distress_bands.get("dscr", []):
+                if dscr <= threshold:
                     total_notches += notches
                     details["dscr"] = dscr
                     per_metric_notches["dscr"] = notches
                     break
-    
+
         altman_z = fin.get("altman_z")
         if altman_z is not None:
-            for threshold, notches in DISTRESS_BANDS["altman_z"]:
-                if altman_z < threshold:
+            for threshold, notches in distress_bands.get("altman_z", []):
+                if altman_z <= threshold:
                     total_notches += notches
                     details["altman_z"] = altman_z
                     per_metric_notches["altman_z"] = notches
                     break
-        # Cap maximum downgrade at 4 notches (notches are negative)
-        if total_notches < MAX_DISTRESS_NOTCHES:
-            total_notches = MAX_DISTRESS_NOTCHES
-    
+
+        if total_notches < max_notches:
+            total_notches = max_notches
+
         return total_notches, details, per_metric_notches
 
     # --------- TOP-LEVEL ORCHESTRATION ---------
@@ -337,17 +351,13 @@ class RatingModel:
         qual_buckets: Optional[Dict[str, str]] = None,
     ) -> RatingOutputs:
         """Main API: returns fully populated RatingOutputs dataclass."""
-        
         ratio_weights = ratio_weights or {}
         qual_weights = qual_weights or {}
         qual_buckets = qual_buckets or {}
 
         fin = dict(quant_inputs.fin_t0)
+        _ = self._ensure_altman_z(fin, quant_inputs.components_t0)
 
-        # Altman once, on the same fin
-        altman_z = self._ensure_altman_z(fin, quant_inputs.components_t0)
-        
-        # 1. Quantitative block
         (
             quant_score,
             peer_score,
@@ -365,15 +375,18 @@ class RatingModel:
             fin=fin,
         )
 
-        # 2. Qualitative block
         qual_score, n_qual, qual_log = self.compute_qualitative(
             qual_inputs,
             qual_weights=qual_weights,
             qual_buckets=qual_buckets,
         )
 
-        # 3. Weights between quant and qual
-        wq, wl = compute_effective_weights(n_quant, n_qual)
+        # 3. Weights between quant and qual (now using config.RATING_WEIGHTS)
+        wq, wl = compute_effective_weights(
+            n_quant,
+            n_qual,
+            self.config["RATING_WEIGHTS"],
+        )
         logger.info(
             "%s-Weights: n_quant=%d n_qual=%d -> wq=%.3f wl=%.3f",
             self.cp_name,
@@ -386,18 +399,27 @@ class RatingModel:
         combined_score = wq * quant_score + wl * qual_score
 
         # 4. Base rating and band-based outlook
-        base_rating = safe_score_to_rating(combined_score)
-        base_outlook, band_position = derive_outlook_band_only(combined_score, base_rating)
-
+        base_rating = safe_score_to_rating(
+            combined_score,
+            self.config["SCORE_TO_RATING"],
+        )
+        base_outlook, band_position = derive_outlook_band_only(
+            combined_score,
+            base_rating,
+            self.config["SCORE_TO_RATING"],
+        )
+        
         # 5. Distress / hardstops
         if enable_hardstops:
-            distress_notches, hardstop_details, distress_per_metric = self.compute_distress_notches(fin,)
+            distress_notches, hardstop_details, distress_per_metric = (
+                self.compute_distress_notches(fin)
+            )
         else:
             distress_notches = 0
             hardstop_details = {}
             distress_per_metric = {}
 
-        # Enrich ratio_log with distress per metric
+        # Enrich ratio_log with distress per metric (same behavior as before)
         for row in ratio_log:
             name = row.get("Name")
             if name in {"interest_coverage", "dscr", "altman_z"}:
@@ -405,13 +427,21 @@ class RatingModel:
             else:
                 row["DistressNotches"] = row.get("DistressNotches", 0)
 
-        hardstop_rating = move_notches(base_rating, distress_notches)
+        hardstop_rating = move_notches(
+            base_rating,
+            distress_notches,
+            self.config["RATING_SCALE"],
+        )
         hardstop_triggered = (hardstop_rating != base_rating)
 
         # 6. Sovereign cap
         capped_rating = hardstop_rating
         if enable_sovereign_cap and sovereign_rating is not None:
-            capped_rating = apply_sovereign_cap(hardstop_rating, sovereign_rating)
+            capped_rating = apply_sovereign_cap(
+                hardstop_rating,
+                sovereign_rating,
+                self.config["RATING_SCALE"],
+            )
 
         final_rating = capped_rating
 
@@ -438,7 +468,7 @@ class RatingModel:
             so = sovereign_outlook
             severity = {"Positive": 0, "Stable": 1, "Negative": 2}
 
-            if is_stronger(hardstop_rating, sr):
+            if is_stronger(hardstop_rating, sr,  self.config["RATING_SCALE"]):
                 outlook = so                                  # Sovereign stronger → use its outlook
             else:
                 if sr == hardstop_rating:
@@ -452,6 +482,7 @@ class RatingModel:
 
         final_outlook = outlook
 
+        
         # 8. Flags for UI / debug
         flags = {
             "enable_hardstops": enable_hardstops,

@@ -2,20 +2,12 @@ import math
 import os
 import sys
 from statistics import mean
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 
 import pandas as pd
 
 from sn_rating.datamodel import RatioConfig, QualFactorConfig
-from sn_rating.config import (
-    SCORE_TO_RATING,
-    RATING_SCALE,
-    RATING_WEIGHTS,
-    DISTRESS_BANDS,
-    MAX_DISTRESS_NOTCHES,
-    QUAL_SCORE_SCALE,
-    logger,
-)
+from sn_rating.config import logger
 
 
 def normalize_ratio_config(cfg: RatioConfig) -> RatioConfig:
@@ -99,103 +91,119 @@ def resource_path(relative_path: str) -> str:
 
 class BandConfig:
     """
-    Reads sn_rating_config.xlsx and infers, for each ratio_name:
-    - ratio_family (cluster) from the band rows
-    - direction: 'lower' or 'higher' depending on which sheet it appears in
+    Builds band lookups from config['RATIOS_LOWER_BETTER'] / ['RATIOS_HIGHER_BETTER'].
     """
 
-    def __init__(self, config_path: str = "sn_rating_config.xlsx"):
-        # Always resolve via input_path so exe uses its own folder
-        self.config_path = input_path(config_path)             # Input config Excel path
-        self.lower: Optional[pd.DataFrame] = None              # Bands where lower is better
-        self.higher: Optional[pd.DataFrame] = None             # Bands where higher is better
-        self.ratio_family: Dict[str, str] = {}                 # "ratio_name" → "family"
-        self.direction: Dict[str, str] = {}                    # "ratio_name" → "lower"/"higher"
-        self._load()                                           # Load immediately on init
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+        self.lower: Optional[pd.DataFrame] = None
+        self.higher: Optional[pd.DataFrame] = None
+        self.ratio_family: Dict[str, str] = {}
+        self.direction: Dict[str, str] = {}
+        self._load_from_config()
 
-    def _norm_cols(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Normalize column and key text to lowercase/stripped for robust matching."""
-        
+    def _build_df(
+        self,
+        ratio_dict: Dict[str, Dict[str, List[Tuple[float, float, float]]]],
+        direction: str,
+    ) -> pd.DataFrame:
+        rows: List[Dict[str, Any]] = []
+        for fam, ratios in ratio_dict.items():
+            for name, bands in ratios.items():
+                for lo, hi, score in bands:
+                    rows.append(
+                        {
+                            "ratio_family": str(fam),
+                            "ratio_name": str(name),
+                            "min_value": float(lo),
+                            "max_value": float(hi),
+                            "score": float(score),
+                            "__direction__": direction,
+                        }
+                    )
+        return pd.DataFrame(rows) if rows else pd.DataFrame(
+            columns=[
+                "ratio_family",
+                "ratio_name",
+                "min_value",
+                "max_value",
+                "score",
+                "__direction__",
+            ]
+        )
+
+    def _normalize(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
-        df.columns = [str(c).strip().lower() for c in df.columns]  # Standardize headers
-        for c in ["ratio_family", "ratio_name"]:
-            if c in df.columns:
-                df[c] = df[c].astype(str).str.strip().str.lower()  # Normalize keys
+        for col in ["ratio_family", "ratio_name", "__direction__"]:
+            if col in df.columns:
+                df[col] = df[col].astype(str).str.strip().str.lower()
         return df
 
-    def _load(self) -> None:
-        """Read Excel bands, split into lower_better/higher_better, build indexes."""
-        
-        with pd.ExcelFile(self.config_path) as xls:            # Open config workbook
-            lb = pd.read_excel(xls, "lower_better")            # Bands: lower values are better
-            hb = pd.read_excel(xls, "higher_better")           # Bands: higher values are better
-        self.lower = self._norm_cols(lb)                       # Normalize text
-        self.higher = self._norm_cols(hb)
+    def _load_from_config(self) -> None:
+        lb_dict = self.config.get("RATIOS_LOWER_BETTER", {})
+        hb_dict = self.config.get("RATIOS_HIGHER_BETTER", {})
 
-        all_bands = []                                         # Collect both directions
+        lb_df = self._build_df(lb_dict, "lower")
+        hb_df = self._build_df(hb_dict, "higher")
+
+        if not lb_df.empty:
+            lb_df = self._normalize(lb_df)
+        if not hb_df.empty:
+            hb_df = self._normalize(hb_df)
+
+        self.lower = lb_df if not lb_df.empty else None
+        self.higher = hb_df if not hb_df.empty else None
+
+        all_frames: List[pd.DataFrame] = []
         if self.lower is not None:
-            tmp = self.lower.copy()
-            tmp["__direction__"] = "lower"                     # Mark rows from lower sheet
-            all_bands.append(tmp)
+            all_frames.append(self.lower)
         if self.higher is not None:
-            tmp = self.higher.copy()
-            tmp["__direction__"] = "higher"                    # Mark rows from higher sheet
-            all_bands.append(tmp)
-        if not all_bands:                                      # Nothing loaded → bail
+            all_frames.append(self.higher)
+        if not all_frames:
             return
 
-        all_bands_df = pd.concat(all_bands, ignore_index=True) # Unified table of all bands
+        all_bands_df = pd.concat(all_frames, ignore_index=True)
 
-        for ratio_name, sub in all_bands_df.groupby("ratio_name"):  # For each metric
-            fam = str(sub["ratio_family"].iloc[0])             # First family's name
-            dirn = str(sub["__direction__"].iloc[0])           # "lower" or "higher"
+        for ratio_name, sub in all_bands_df.groupby("ratio_name"):
+            fam = str(sub["ratio_family"].iloc[0])
+            dirn = str(sub["__direction__"].iloc[0])
             self.ratio_family[ratio_name] = fam
             self.direction[ratio_name] = dirn
 
-        logger.info(                                           # Log summary for debugging
-            "BandConfig: loaded families/directions for ratios: %s",
-            self.ratio_family,
-        )
+        logger.info("BandConfig: loaded families/directions for ratios: %s", self.ratio_family)
 
     def get_direction(self, metric: str) -> Optional[str]:
-        """Return 'lower' or 'higher' for a given ratio metric, if known."""
-        
-        m = metric.strip().lower()                             # Normalize lookup key
+        m = str(metric).strip().lower()
         return self.direction.get(m)
 
     def lookup(self, metric: str, val: float) -> Optional[float]:
-        """Lookup band score for a metric/value using configured bands."""
-        
-        metric = metric.strip().lower()
         if val is None or (isinstance(val, float) and math.isnan(val)):
-            return None                                        # No score for missing value
+            return None
 
-        dirn = self.get_direction(metric)                      # "lower"/"higher"/None
+        metric_norm = str(metric).strip().lower()
+        dirn = self.get_direction(metric_norm)
         if dirn is None:
             return None
 
-        df = self.lower if dirn == "lower" else self.higher    # Pick proper band table
-        if df is None:
+        df = self.lower if dirn == "lower" else self.higher
+        if df is None or df.empty:
             return None
 
-        dfm = df[df["ratio_name"] == metric]                   # Filter rows for this metric
+        dfm = df[df["ratio_name"] == metric_norm]
         if dfm.empty:
             return None
 
-        # First try to find a band where min_value <= val < max_value
         for _, row in dfm.iterrows():
-            lo, hi = row["min_value"], row["max_value"]
-            s = row["score"]
+            lo, hi, s = row["min_value"], row["max_value"], row["score"]
             if lo <= val < hi:
-                return float(s)                                # Found matching band
+                return float(s)
 
-        # If outside configured bands, clamp to lowest or highest band
         lo_min = dfm["min_value"].min()
         hi_max = dfm["max_value"].max()
         if val < lo_min:
-            row = dfm.loc[dfm["min_value"].idxmin()]           # Use lowest band
+            row = dfm.loc[dfm["min_value"].idxmin()]
         else:
-            row = dfm.loc[dfm["max_value"].idxmax()]           # Use highest band
+            row = dfm.loc[dfm["max_value"].idxmax()]
         return float(row["score"])
 
 
@@ -236,12 +244,17 @@ def classify_peer_with_bandconfig(
     return lower, upper, flag, peer_avg          # Return band bounds + classification
 
 
-def score_qual_factor_numeric(value: int) -> Optional[float]:
-    """Map 1–5 qualitative score to numeric via QUAL_SCORE_SCALE."""
-    
+def score_qual_factor_numeric(
+    value: int,
+    qual_score_scale: Dict[int, float],
+) -> Optional[float]:
+    """
+    Map 1–5 qualitative score to numeric via QUAL_SCORE_SCALE from config.
+    Behavior identical to original, now without global.
+    """
     if value is None or (isinstance(value, float) and math.isnan(value)):
         return None
-    return QUAL_SCORE_SCALE.get(int(value))
+    return qual_score_scale.get(int(value))
 
 
 def compute_altman_z_from_components(
@@ -263,8 +276,6 @@ def compute_altman_z_from_components(
     D = market_value_equity / total_liabilities
     E = sales / total_assets
     return 1.2 * A + 1.4 * B + 3.3 * C + 0.6 * D + 1.0 * E     # Standard Altman Z formula
-
-
 
 def compute_peer_score(
     fin_current: Dict[str, float],
@@ -344,111 +355,131 @@ def compute_peer_score(
     return score, under, over, on_par, total
 
 
-def score_to_rating(score: float) -> str:
-    """Map numeric score to rating using SCORE_TO_RATING cutoffs."""
-    
-    for cutoff, grade in SCORE_TO_RATING:                      # Iterate high→low thresholds
+def score_to_rating(
+    score: float,
+    score_to_rating_table: List[Tuple[float, str]],
+) -> str:
+    """Map numeric score to rating using SCORE_TO_RATING from config."""
+    for cutoff, grade in score_to_rating_table:  # high→low thresholds
         if score >= cutoff:
             return grade
-    raise ValueError(f"Score {score} did not match any cutoff") # only a backstop although the scenario is rare
+    raise ValueError(f"Score {score} did not match any cutoff")
 
 
-def safe_score_to_rating(score: float) -> str:
-    """Wrapper that logs errors and returns 'N/R' if mapping fails."""
-    
+def safe_score_to_rating(
+    score: float,
+    score_to_rating_table: List[Tuple[float, str]],
+) -> str:
+    """Wrapper that logs errors and returns 'NR' if mapping fails."""
     try:
-        return score_to_rating(score)
+        return score_to_rating(score, score_to_rating_table)
     except ValueError as e:
         logger.error("Score-to-rating mapping failed: %s", e)
-        return "N/R"
+        return "NR"
 
 
-def move_notches(grade: str, notches: int) -> str:
+def move_notches(
+    grade: str,
+    notches: int,
+    rating_scale: List[str],
+) -> str:
     """Move rating up/down by N notches within RATING_SCALE."""
+    if grade not in rating_scale:
+        return grade
+    idx = rating_scale.index(grade)
+    new_idx = max(0, min(idx - notches, len(rating_scale) - 1))
+    return rating_scale[new_idx]
     
-    if grade not in RATING_SCALE:
-        return grade                                           # Unknown grade → unchanged
-    idx = RATING_SCALE.index(grade)                            # Current position
-    new_idx = max(0, min(idx - notches, len(RATING_SCALE) - 1))# Subtract notches, clamp to bounds (ensures it is not below 0 or above the last index)
-    return RATING_SCALE[new_idx]
-
 
 def apply_sovereign_cap(
     issuer_grade: str,
     sovereign_grade: Optional[str],
+    rating_scale: List[str],
 ) -> str:
     """Apply sovereign rating cap: issuer cannot be stronger than sovereign."""
-    
     if sovereign_grade is None:
         return issuer_grade
-    if issuer_grade not in RATING_SCALE or sovereign_grade not in RATING_SCALE:
+    if issuer_grade not in rating_scale or sovereign_grade not in rating_scale:
         return issuer_grade
-    i = RATING_SCALE.index(issuer_grade)
-    s = RATING_SCALE.index(sovereign_grade)
-    return RATING_SCALE[max(i, s)]                             # Weaker of the two (higher index)
+
+    i = rating_scale.index(issuer_grade)
+    s = rating_scale.index(sovereign_grade)
+    return rating_scale[max(i, s)]
 
 
-
-def compute_effective_weights(n_quant: int, n_qual: int) -> Tuple[float, float]:
+def compute_effective_weights(
+    n_quant: int,
+    n_qual: int,
+    rating_weights: Dict[str, Optional[float]],
+) -> Tuple[float, float]:
     """
-    Compute final quant / qual weights:
-    - If both set in RATING_WEIGHTS: use them.
+    Compute final quant / qual weights.
+
+    - If both set in rating_weights, normalize them so they sum to 1.0.
     - Otherwise, allocate by count of metrics (n_quant vs n_qual).
+    - If both counts are zero, return (0.0, 0.0).
     """
-    
-    wq_cfg = RATING_WEIGHTS["quantitative"]
-    wl_cfg = RATING_WEIGHTS["qualitative"]
+    wq_cfg = rating_weights.get("quantitative")
+    wl_cfg = rating_weights.get("qualitative")
 
-    if wq_cfg is not None and wl_cfg is not None:              # Explicit config from Excel
-        return float(wq_cfg), float(wl_cfg)
+    # Case 1: both explicitly configured → normalize
+    if wq_cfg is not None and wl_cfg is not None:
+        total = wq_cfg + wl_cfg
+        if total > 0:
+            wq = float(wq_cfg) / total
+            wl = float(wl_cfg) / total
+            return wq, wl
+        # Degenerate case: both zero or negative → fall through to count-based
+        # (or you could choose to return (0.0, 0.0) explicitly)
 
+    # Case 2: at least one missing → derive from counts
     n_quant = max(n_quant, 0)
     n_qual = max(n_qual, 0)
     total = n_quant + n_qual
-
     if total == 0:
-        return 0.0, 0.0                                        # No metrics at all
+        return 0.0, 0.0
 
-    wq = n_quant / total                                       # Proportional weight
+    wq = n_quant / total
     wl = n_qual / total
     return wq, wl
-
-
-def get_rating_band(rating: str) -> Tuple[float, float]:
-    """Return [min_score, max_score] band for a given rating grade."""
     
-    for i, (cutoff, grade) in enumerate(SCORE_TO_RATING):
+
+def get_rating_band(
+    rating: str,
+    score_to_rating_table: List[Tuple[float, str]],
+) -> Tuple[float, float]:
+    """Return (min_score, max_score) band for a given rating grade."""
+    for i, (cutoff, grade) in enumerate(score_to_rating_table):
         if grade == rating:
-            band_min = cutoff                                  # Lower bound = its own cutoff
+            band_min = cutoff
             if i == 0:
-                band_max = 100.0                               # Top rating extends to 100
+                band_max = 100.0
             else:
-                prev_cutoff, _ = SCORE_TO_RATING[i - 1]        # Next better rating's cutoff
-                band_max = prev_cutoff - 1.0                   # One point below that
+                prev_cutoff, _ = score_to_rating_table[i - 1]
+                band_max = prev_cutoff - 1.0
             return band_min, band_max
-    raise ValueError(f"Unknown rating grade: {rating!r}")
+    raise ValueError(f"Unknown rating grade {rating!r}!")
 
 
+def derive_outlook_band_only(
+    combined_score: float,
+    rating: str,
+    score_to_rating_table: List[Tuple[float, str]],
+) -> Tuple[str, str]:
+    """Derive outlook (Positive/Stable/Negative) and band position based on rating band."""
+    band_min, band_max = get_rating_band(rating, score_to_rating_table)
+    cs = math.floor(combined_score)
 
-def derive_outlook_band_only(combined_score: float, rating: str) -> Tuple[str, str]:
-    """
-    Derive outlook ('Positive', 'Stable', 'Negative') and band position
-    based only on where combined_score sits within the rating band.
-    """
-    
-    band_min, band_max = get_rating_band(rating)
-    cs = math.floor(combined_score)                            # Discrete score for logic
-
-    if cs == band_max:
+    if cs >= band_max:
         outlook = "Positive"
-    elif cs == band_min:
+    elif cs <= band_min:
         outlook = "Negative"
     else:
         outlook = "Stable"
 
-    if cs == band_min:
+    if cs <= band_min:
         band_position = "lower_band"
-    elif cs == band_max:
+    elif cs >= band_max:
         band_position = "upper_band"
     else:
         band_position = "middle_band"
@@ -490,29 +521,27 @@ def derive_outlook_with_distress_trend(
     return "Stable"
 
 
-def rating_index(grade: str) -> Optional[int]:
+def rating_index(grade: str, rating_scale: List[str]) -> Optional[int]:
     """Return index of grade in RATING_SCALE, or None if unknown."""
-    
-    if grade not in RATING_SCALE:
+    if grade not in rating_scale:
         return None
-    return RATING_SCALE.index(grade)
+    return rating_scale.index(grade)
 
 
-def is_stronger(r1: str, r2: str) -> bool:
+def is_stronger(r1: str, r2: str, rating_scale: List[str]) -> bool:
     """Return True if r1 is stronger (better rating) than r2."""
-    
-    i1 = rating_index(r1)
-    i2 = rating_index(r2)
+    i1 = rating_index(r1, rating_scale)
+    i2 = rating_index(r2, rating_scale)
     if i1 is None or i2 is None:
         return False
-    return i1 < i2                                             # Lower index = stronger
+    return i1 < i2
 
 
-def is_weaker_or_equal(r1: str, r2: str) -> bool:
+def is_weaker_or_equal(r1: str, r2: str, rating_scale: List[str]) -> bool:
     """Return True if r1 is weaker than or equal to r2."""
-    
-    i1 = rating_index(r1)
-    i2 = rating_index(r2)
+    i1 = rating_index(r1, rating_scale)
+    i2 = rating_index(r2, rating_scale)
     if i1 is None or i2 is None:
         return False
-    return i1 >= i2                                            # Higher index = weaker/equal
+    return i1 >= i2
+    

@@ -8,14 +8,18 @@ from openpyxl.styles import Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter, range_boundaries
 from openpyxl.worksheet.page import PageMargins
 
+from sn_rating.config import load_config
 from sn_rating.run_from_excel import run_from_excel_with_bands, _infer_time_labels
 from sn_rating.helpers import get_rating_band, input_path, output_path
+
 
 
 def generate_corporate_rating_report(result) -> str:
     """Create a formatted Excel report (main + log sheets) from RatingOutputs."""
     
     res = result  # Alias for brevity
+    cfg = load_config()
+    score_to_rating = cfg["SCORE_TO_RATING"]    
 
     # ------------------------------------------------------------------
     # Load input sheets for display (only for showing original ratios/factors)
@@ -312,7 +316,7 @@ def generate_corporate_rating_report(result) -> str:
     # ------------------------------------------------------------------
     # Log sheet (ratio log + peer/distress summary)
     # ------------------------------------------------------------------
-    log_ws = wb.create_sheet(title="log")
+    log_ws = wb.create_sheet(title="ratio_log")
 
     log_rows: List[Dict[str, Any]] = []
     log_rows.extend(res.ratio_log)                         # Start with detailed ratio log
@@ -339,6 +343,15 @@ def generate_corporate_rating_report(result) -> str:
             break
 
     # Summary rows based on flags/aggregates
+    log_rows.append(
+        {
+            "Name": "peer_positioning",
+            "Value": under_share,   
+            "Score": res.peer_score,
+            "PeerFlag": None,
+        }
+    )
+    
     log_rows.append(
         {
             "Name": "Peer positioning enabled",
@@ -379,14 +392,7 @@ def generate_corporate_rating_report(result) -> str:
             "PeerFlag": None,
         }
     )
-    log_rows.append(
-        {
-            "Name": "peer_positioning",
-            "Value": under_share,   
-            "Score": res.peer_score,
-            "PeerFlag": None,
-        }
-    )
+
     log_rows.append(
         {
             "Name": "aggregate quantitative score",
@@ -430,7 +436,7 @@ def generate_corporate_rating_report(result) -> str:
         }
     )
 
-    band_min, band_max = get_rating_band(res.base_rating)
+    band_min, band_max = get_rating_band(res.base_rating, score_to_rating)
     band_range_str = f"{int(band_min)}-{int(band_max)}"
     log_rows.append(
         {
@@ -441,63 +447,6 @@ def generate_corporate_rating_report(result) -> str:
         }
     )
 
-    log_rows.append(
-        {
-            "Name": "base_rating/outlook",
-            "Value": f"{res.base_rating}/{res.base_outlook}",
-            "Score": "",
-            "PeerFlag": None,
-        }
-    )
-    log_rows.append(
-        {
-            "Name": "hardstop_rating/outlook",
-            "Value": f"{res.hardstop_rating}/{res.hardstop_outlook}",
-            "Score": "",
-            "PeerFlag": None,
-        }
-    )
-    log_rows.append(
-        {
-            "Name": "final rating/outlook",
-            "Value": f"{res.final_rating}/{res.final_outlook}",
-            "Score": "",
-            "PeerFlag": None,
-        }
-    )
-
-    log_rows.append(
-        {
-            "Name": "Hardstop enabled",
-            "Value": res.flags.get("enable_hardstops", False),
-            "Score": "",
-            "PeerFlag": None,
-        }
-    )
-    log_rows.append(
-        {
-            "Name": "Sovereign cap enabled",
-            "Value": res.flags.get("enable_sovereign_cap", False),
-            "Score": "",
-            "PeerFlag": None,
-        }
-    )
-    log_rows.append(
-        {
-            "Name": "distress_notches",
-            "Value": res.distress_notches,
-            "Score": "",
-            "PeerFlag": None,
-        }
-    )
-    log_rows.append(
-        {
-            "Name": "sovereign Rating/Outlook",
-            "Value": f"{res.sovereign_rating or ''}/{res.sovereign_outlook or ''}",
-            "Score": "",
-            "PeerFlag": None,
-        }
-    )
 
     # Build DataFrame and preserve peer/distress columns
     log_df = pd.DataFrame(log_rows)
@@ -507,6 +456,7 @@ def generate_corporate_rating_report(result) -> str:
         "Name",
         "Value",
         "Score",
+        "Weight",
         "PeerFlag",
         "PeerAvg",
         "PeerLowerBound",
@@ -521,6 +471,7 @@ def generate_corporate_rating_report(result) -> str:
             "Name",
             "Value",
             "Score",
+            "Weight",
             "PeerFlag",
             "PeerAvg",
             "PeerLowerBound",
@@ -542,11 +493,12 @@ def generate_corporate_rating_report(result) -> str:
 
         v_cell = log_ws.cell(row=i, column=2, value=row_series["Value"])
         s_cell = log_ws.cell(row=i, column=3, value=row_series["Score"])
-        p_cell = log_ws.cell(row=i, column=4, value=row_series["PeerFlag"])
-        avg_cell = log_ws.cell(row=i, column=5, value=row_series["PeerAvg"])
-        lb_cell = log_ws.cell(row=i, column=6, value=row_series["PeerLowerBound"])
-        ub_cell = log_ws.cell(row=i, column=7, value=row_series["PeerUpperBound"])
-        dn_cell = log_ws.cell(row=i, column=8, value=row_series["DistressNotches"])
+        w_cell = log_ws.cell(row=i, column=4, value=row_series["Weight"])       
+        p_cell = log_ws.cell(row=i, column=5, value=row_series["PeerFlag"])
+        avg_cell = log_ws.cell(row=i, column=6, value=row_series["PeerAvg"])
+        lb_cell = log_ws.cell(row=i, column=7, value=row_series["PeerLowerBound"])
+        ub_cell = log_ws.cell(row=i, column=8, value=row_series["PeerUpperBound"])
+        dn_cell = log_ws.cell(row=i, column=9, value=row_series["DistressNotches"])
 
         # Number formatting
         if isinstance(row_series["Value"], (int, float)):
@@ -565,6 +517,8 @@ def generate_corporate_rating_report(result) -> str:
 
         if isinstance(row_series["Score"], (int, float)):
             s_cell.number_format = "0.00"
+        if isinstance(row_series["Weight"], (int, float)):
+            w_cell.number_format = "0.00"
         if isinstance(row_series["PeerAvg"], (int, float)):
             avg_cell.number_format = "0.00"
         if isinstance(row_series["PeerLowerBound"], (int, float)):
@@ -575,13 +529,13 @@ def generate_corporate_rating_report(result) -> str:
             dn_cell.number_format = "0"
 
         # Right-align numeric cells
-        for cell in (v_cell, s_cell, p_cell, avg_cell, lb_cell, ub_cell, dn_cell):
+        for cell in (v_cell, s_cell, w_cell, p_cell, avg_cell, lb_cell, ub_cell, dn_cell):
             cell.alignment = Alignment(horizontal="right")
        
     # Column widths for log sheet
     for col_letter, width in zip(
-        ["A", "B", "C", "D", "E", "F", "G", "H"],
-        [30, 20, 15, 12, 15, 15, 15, 15],
+        ["A", "B", "C", "D", "E", "F", "G", "H","I"],
+        [30, 20, 15, 12, 12, 15, 15, 15, 15],
     ):
         log_ws.column_dimensions[col_letter].width = width
 
