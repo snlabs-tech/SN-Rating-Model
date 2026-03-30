@@ -33,3 +33,6 @@ windows_bundle/output/
 Thumbs.db
 windows_bundle/input/~$sn_rating_config.xlsx
 windows_bundle/input/~$sn_rating_input.xlsx
+src/input/~$sn_rating_config.xlsx
+src/input/~$sn_rating_input.xlsx
+src/output/Abc_Sample_Corporate_Credit_Rating_Report.xlsx
