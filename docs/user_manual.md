@@ -38,8 +38,8 @@ If you run the model via Python source instead of the Windows bundle, you will t
 This assumes you have a conda/virtualenv with the required packages installed and a runner script `run_sn_rating.py` that calls the model and writes the Excel.
 
 1. Create/activate your environment and install dependencies (for example via `requirements.txt`).
-2. From the repo root, open `windows_bundle/input/sn_rating_input.xlsx` and enter your company data (see section 4).
-3. Optionally open `windows_bundle/input/sn_rating_config.xlsx` to customize ratio bands, weights and other settings (see section 5).
+2. From the repo root, open `src/input/sn_rating_input.xlsx` and enter your company data (see section 4).
+3. Optionally open `src/input/sn_rating_config.xlsx` to customize ratio bands, weights and other settings (see section 5).
 4. Save and close both Excel files.
 5. From the repo root (or `src/`, depending on where you place the script), run:
    ```bash
@@ -90,19 +90,19 @@ This sheet holds identifiers and fields that affect the rating logic.
 - `name`, `id`, `country` – Company identifiers  
 - `sovereign_rating`, `sovereign_outlook` – Country reference  
 - `enable_peer_positioning`, `enable_hardstops`, `enable_sovereign_cap` – Feature flags (TRUE/FALSE)  
-- `quantitative_weight`, `qualitative_weight` – Block weights (sum to 1.0)  
+
 
 **Edit:**
 
 - Set `name`, `id`, `country`
 - Provide `sovereign_rating` and `sovereign_outlook`
 - Set `enable_*` flags (`TRUE` / `FALSE`)
-- Ensure weights sum to 1 (e.g. 0.5 / 0.5)
+
 
 **Effect:**
 
 - Drives report labelling.
-- Controls caps, hard‑stops, peer features, and final quantitative/qualitative weighting.
+- Controls caps, hard‑stops and peer features.
 - If the enable_* flags are left blank, the corresponding features are ignored and treated as FALSE by default.
 
 ---
