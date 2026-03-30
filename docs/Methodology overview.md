@@ -10,9 +10,9 @@ The model produces a long-term **issuer credit rating** and **outlook** for corp
 
 - **Quantitative** financial ratios, including the Altman Z-score and coverage/leverage metrics. 
 - **Qualitative** factors covering business profile, governance, and financial policy.
-- **Peer positioning**, comparing the issuer’s key ratios against a peer group. 
-- **Distress / hardstops**, which can notch down the rating when distress indicators breach configured thresholds. 
-- **Sovereign cap**, which can cap the issuer rating at the sovereign rating when enabled.
+- **Peer positioning**(optional), comparing the issuer’s key ratios against a peer group. 
+- **Distress / hardstops**(optional), which can notch down the rating when distress indicators breach configured thresholds. 
+- **Sovereign cap**(optional), which can cap the issuer rating at the sovereign rating when enabled.
 
 The model is implemented in Python with Excel as the primary user interface for input and reporting. All configuration (bands, weights, scales) and inputs are provided via Excel, while the rating logic is executed by the Python engine.
 
