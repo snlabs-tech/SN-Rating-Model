@@ -58,8 +58,9 @@ If you prefer the packaged Windows bundle:
 2. Open `input/sn_rating_input.xlsx` and enter your company data (section 4).
 3. Optionally edit `input/sn_rating_config.xlsx` to adjust bands, weights, and other settings (section 5).
 4. Save and close both Excel files.
-5. Double-click `run_sn_rating.bat` (this calls `Run_SN_RatingModel.exe`).
-6. When it finishes, open `windows_bundle/output/` and view the generated rating report workbook.
+5. Ensure `Run_SN_RatingModel.exe`is available alongside `run_sn_rating.bat` in the `windows_bundle/` folder.
+6. Double-click `run_sn_rating.bat` (this calls `Run_SN_RatingModel.exe`).
+7. When it finishes, open `windows_bundle/output/` and view the generated rating report workbook.
 
 ---
 
@@ -87,14 +88,14 @@ This sheet holds identifiers and fields that affect the rating logic.
 
 **Typical fields:**
 
-- `name`, `id`, `country` – Company identifiers  
+- `name`, `country` – Company identifiers  
 - `sovereign_rating`, `sovereign_outlook` – Country reference  
 - `enable_peer_positioning`, `enable_hardstops`, `enable_sovereign_cap` – Feature flags (TRUE/FALSE)  
 
 
 **Edit:**
 
-- Set `name`, `id`, `country`
+- Set `name`, `country`
 - Provide `sovereign_rating` and `sovereign_outlook`
 - Set `enable_*` flags (`TRUE` / `FALSE`)
 
