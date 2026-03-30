@@ -27,9 +27,17 @@ The model reads Excel input data, applies scoring rules defined in configuration
 
 ```text
 SN-Rating-Model/
-├── src/
+├── windows_bundle/             # Standalone Windows execution package
+│   ├── run_sn_rating.bat       # Batch wrapper around the .exe
+│   ├── Run_SN_RatingModel.exe  # Packaged Windows executable
 │   ├── input/
-│   │   ├── sn_rating_input.xlsx   # Company input template
+│   │   ├── sn_rating_input.xlsx   # Company info input template
+│   │   └── sn_rating_config.xlsx  # Configuration workbook
+│   └── output/                 # Created at runtime, holds rating reports
+│
+├── src/                        # Python execution package
+│   ├── input/
+│   │   ├── sn_rating_input.xlsx   # Company info input template
 │   │   └── sn_rating_config.xlsx  # Configuration workbook
 │   └── run_sn_rating.py        # python file for CLI run
 │   └── output/                 # Created at runtime, holds rating reports
@@ -42,14 +50,6 @@ SN-Rating-Model/
 │       ├── model.py            # Rating model logic
 │       ├── report.py           # Report generation helpers
 │       └── run_from_excel.py   # Entry point for Excel-based runs
-│
-├── windows_bundle/             # Standalone Windows execution package
-│   ├── run_sn_rating.bat       # Batch wrapper around the .exe
-│   ├── Run_SN_RatingModel.exe  # Packaged Windows executable
-│   ├── input/
-│   │   ├── sn_rating_input.xlsx   # Company input template
-│   │   └── sn_rating_config.xlsx  # Configuration workbook
-│   └── output/                 # Created at runtime, holds rating reports
 │
 ├── docs/                       # Methodology and workflow documentation
 │   ├── Hardstop_Rating_Workflow.md
