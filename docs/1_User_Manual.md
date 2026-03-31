@@ -141,10 +141,10 @@ The detailed logic for each of these is documented in:
 ## 6. Where to find more detail
 
 - **Methodology and configuration**  
-  `docs/SN Corporate Rating Model – Methodology.md` – full description of inputs, configuration, quantitative and qualitative blocks, distress/hardstops, sovereign cap, and rating/outlook derivation.
+  `docs/3_Methodology_Overview.md` – full description of inputs, configuration, quantitative and qualitative blocks, distress/hardstops, sovereign cap, and rating/outlook derivation.
 
 - **How to run the model**  
-  `docs/Running the model.md` – step‑by‑step instructions for:
+  `docs/2_Running_The_Model.md` – step‑by‑step instructions for:
   - Running via Python (`run_sn_rating.py`).  
   - Running via the Windows bundle (`run_sn_rating.bat` + `Run_SN_RatingModel.exe`).
 
