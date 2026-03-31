@@ -172,8 +172,8 @@ pip install -r requirements.txt
 Clone the repository:
 
 ```bash
-git clone https://github.com/snlabs-tech/SN-Corporate-Rating-Model-V2.git
-cd SN-Corporate-Rating-Model-V2
+git clone https://github.com/snlabs-tech/SN-Rating-Model.git
+cd SN-Rating-Model
 ```
 
 (Editable install is optional; you can also run directly from source.)
