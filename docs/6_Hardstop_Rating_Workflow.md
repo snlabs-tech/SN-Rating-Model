@@ -14,10 +14,9 @@ The rating is built in three main layers:
    Derived from the combined quantitative and qualitative score using `SCORE_TO_RATING` (no distress overlay, no sovereign cap).
 
 2. **Distress hardstops (this layer, optional)**  
-   Apply notch-down adjustments based on:
-   - `interest_coverage`
-   - `dscr`
-   - `altman_z`
+   Apply notch‑down adjustments based on any ratios configured in `DISTRESS_BANDS` (e.g. interest coverage, DSCR, Altman Z, liquidity or covenant ratios). If no `distress_bands` input is provided in the Excel config, the model falls back to the three core metrics: `interest_coverage`, `dscr`, and `altman_z`.
+
+   The distress / hardstop mechanism acts like a configurable covenant‑style breach trigger: whenever any configured ratio crosses a specified distress threshold, the model applies the associated downgrade notches to the base rating, subject to `MAX_DISTRESS_NOTCHES`.
 
 3. **Sovereign cap (optional)**  
    Ensures the final issuer rating is not better than the specified sovereign rating when the cap is enabled.
@@ -28,13 +27,16 @@ The **hardstop rating** is the outcome after applying the distress layer to the 
 
 ## 2. Distress Metrics and Bands
 
-Three metrics are used for hardstops:
+Distress metrics are defined dynamically via `DISTRESS_BANDS` in the config (and the `distress_bands` Excel sheet). By default, the code provides bands for:
 
-- `interest_coverage` — interest coverage ratio  
-- `dscr` — debt service coverage ratio  
-- `altman_z` — Altman Z-score  
+-   `interest_coverage` — interest coverage ratio
 
-Each metric has a set of **bands** with associated **negative notches**, configured via `DISTRESS_BANDS`:
+-   `dscr` — debt service coverage ratio
+
+-   `altman_z` — Altman Z‑score
+You can add any additional metrics (e.g. `current_ratio`, `rollover_coverage`, covenant tests) in the `distress_bands` sheet; they will automatically participate in distress notching. 
+
+Each metric has a set of **bands** with associated **negative notches**, configured via `DISTRESS_BANDS`. Example (default code configuration):
 
 ```python
 DISTRESS_BANDS = {
@@ -57,6 +59,7 @@ DISTRESS_BANDS = {
 
 MAX_DISTRESS_NOTCHES = -4
 ```
+If the Excel `distress_bands` sheet is present, it overrides these defaults; if it is missing or empty, the model uses these bands as a fallback.
 
 ### Interpretation (example for `interest_coverage`)
 
@@ -70,64 +73,22 @@ The same pattern applies to `dscr` and `altman_z`: the model looks for the first
 ---
 ## 3. How Distress Notches Are Calculated
 
-Core function in the engine:
+Function interface (simplified):
 
 ```python
 def compute_distress_notches(
     fin: Dict[str, float],
-    altman_z: float,
 ) -> Tuple[int, Dict[str, float], Dict[str, int]]:
     ...
+   
 ```
-It returns:
+- For each metric m defined in DISTRESS_BANDS:
 
-- `total_notches` (integer, typically 0 or negative)
+      - Take value = fin.get(m) (current‑year ratio).
+      - Iterate over that metric’s bands (threshold, notches_down) in ascending threshold order.
+      - On the first band where value <= threshold, add notches_down (negative) to total_notches, record value in details[m] and notches_down in per_metric_notches[m], then stop for that metric.
 
-- `details` (metric → value at t0)
-
-- `per_metric_notches` (metric → notches applied)
-
-Step-by-step logic
-
-Interest coverage
-- Read `ic = fin.get("interest_coverage")`.
-
-- If present, iterate through DISTRESS_BANDS["interest_coverage"] in order.
-
-- For the first `(threshold, notches)` with `ic < threshold`:
-
-   - Add `notches` (negative) to `total_notches`.
-
-   - Store `ic` in details["interest_coverage"].
-
-   - Store `notches` in `per_metric_notches["interest_coverage"]`.
-
-   - Stop checking further thresholds for this metric.
-
-If no threshold is breached, this metric does not contribute.
-
-DSCR
-- Same pattern using `DISTRESS_BANDS["dscr"]` and `fin.get("dscr")`.
-
-- Add any negative notches to `total_notches`.
-
-- Store the value in `details["dscr"]` and the notches in `per_metric_notches["dscr"]` if triggered.
-
-Altman Z
-- Compare `altman_z` (already computed or supplied) to `DISTRESS_BANDS["altman_z"]`.
-- On the first breached threshold:
-
-   - Add notches to `total_notches`.
-
-   - Store the score in `details["altman_z"]`.
-
-   - Store notches in `per_metric_notches["altman_z"]`.
-
-Cap the total
-After aggregating contributions from all three metrics, apply the floor:
-- If `total_notches < MAX_DISTRESS_NOTCHES`, set `total_notches = MAX_DISTRESS_NOTCHES`.
-
-This limits the overall downgrade from distress to a maximum number of notches (e.g. −4).
+- After all metrics are processed, if total_notches < MAX_DISTRESS_NOTCHES, set total_notches = MAX_DISTRESS_NOTCHES.
 
 ---
 
@@ -167,7 +128,7 @@ hardstop_triggered = (hardstop_rating != base_rating)
 
 For transparency, distress information is added back into the quantitative ratio log:
 
-- For **interest_coverage, dscr**, and **altman_z**, the corresponding `DistressNotches` from `per_metric_notches` are written into each row.
+- For any metric present in `per_metric_notches`, the corresponding `DistressNotches` value is written into its row in the ratio log. For all other ratios, `DistressNotches` is set to 0 (or left unchanged if already present). This works for both default and custom distress metrics configured in `DISTRESS_BANDS`.
 
 - For all other ratios, `DistressNotches` is set to `0` (or left unchanged if already present).
 
@@ -178,29 +139,31 @@ This allows users to see, per ratio, whether the distress layer contributed to t
 Distress does not only affect the level of the rating; it can also influence the outlook.
 
 After computing the base outlook from the score band, the model can adjust it based on distress notches and trends in key metrics:
+
 ```Python
+trend_metrics = config.get("DISTRESS_TREND_METRICS")
+
 hardstop_outlook = derive_outlook_with_distress_trend(
     base_outlook,
     distress_notches,
     quant_inputs.fin_t0,
     quant_inputs.fin_t1,
+    trend_metrics=trend_metrics,  
 )
 ```
 ## High-level logic
 
 - If `distress_notches >= 0`, the distress layer does not worsen the outlook, so `hardstop_outlook` usually equals `base_outlook`.
 
-- If `distress_notches < 0`, the function examines trends in:
+- If distress_notches < 0, the function examines trends in a configurable set of distress metrics:
 
-- `interest_coverage`
+     -   By default, it uses ["interest_coverage", "dscr", "altman_z"].
 
-- `dscr`
-
-- `altman_z`
+     -   If DISTRESS_TREND_METRICS is set in the config (e.g. via Excel), that list determines which metrics drive the trend.
 
 For each metric, it compares **t0** with **t1**:
 
-If most signals are deteriorating and none clearly improving, the outlook can be forced to **Negative**.
+If the selected trend metrics are mostly deteriorating and none clearly improving, the outlook can be forced to **Negative**.
 
 If there is a mixed or improving picture, the outlook can remain **Stable**, even if the hardstop downgrade is active.
 
