@@ -1,6 +1,6 @@
-# SN Corporate Rating Model – Methodology
+# SN-Rating-Model – Methodology
 
-This document describes the methodology implemented in the SN Corporate Rating Model; earlier versions are deprecated. It is a transparent, rules-based framework that combines quantitative financial metrics and qualitative assessments into an issuer rating and outlook.
+This document describes the methodology implemented in the SN-Rating-Model; earlier versions are deprecated. It is a transparent, rules-based framework that combines quantitative financial metrics and qualitative assessments into an issuer rating and outlook.
 
 ---
 
@@ -36,7 +36,7 @@ Sheets:
 
 - `metadata`  
   - Key/value pairs, including:
-    - `name`, `country`, `id`
+    - `name`, `country`
     - `sovereign_rating`, `sovereign_outlook`
     - `enable_peer_positioning`, `enable_hardstops`, `enable_sovereign_cap`
   - Feature flags control whether peer positioning, distress hardstops, and sovereign cap are applied.
