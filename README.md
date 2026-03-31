@@ -52,13 +52,13 @@ SN-Rating-Model/
 │       └── run_from_excel.py   # Entry point for Excel-based runs
 │
 ├── docs/                       # Methodology and workflow documentation
-│   ├── Hardstop_Rating_Workflow.md
-│   ├── Methodology overview.md
-│   ├── Quantitative_Factors_and_Ratio_Definitions.md
-│   ├── Rating–Outlook Workflow.md
-│   ├── Sovereign Cap Workflow.md
-│   ├── windows_bundle.md
-│   └── user_manual.md
+│   ├── 1_User_Manual.md
+│   ├── 2_Running_The_Model.md
+│   ├── 3_Methodology_Overview.md
+│   ├── 4_Quantitative_Factors_and_Ratio_Definitions.md
+│   ├── 5_Rating_Outlook_Workflow.md
+│   ├── 6_Hardstop_Rating_Workflow.md
+│   └── 7_Sovereign_Cap_Workflow.md
 │
 ├── notebooks/                  # Exploratory analysis and demos
 │   └── sn_rating.ipynb
@@ -89,7 +89,7 @@ The **hardstop rating** is the outcome after applying the distress layer to the 
 
 Distress can also affect the **outlook** via trend‑based logic that looks at selected distress metrics over time.
 
-For a detailed description, see `docs/Hardstop_Rating_Workflow.md`.
+For a detailed description, see `docs/6_Hardstop_Rating_Workflow.md`.
 
 ---
 
@@ -111,7 +111,7 @@ Open:
 input/sn_rating_input.xlsx
 ```
 
-and enter the company data (see `docs/user_manual.md` for details on the `metadata`, `fin_ratios`, `components`, `qual_factors`, and `peers_t0` sheets).
+and enter the company data (see `docs/1_User_Manual.md` for details on the `metadata`, `fin_ratios`, `components`, `qual_factors`, and `peers_t0` sheets).
 
 ### 3. (Optional) Adjust configuration
 
@@ -274,7 +274,7 @@ Contains sheets such as:
 - `qual_factors` – 1–5 expert scores for qualitative dimensions.  
 - `peers_t0` – Peer company data for T0, used for peer comparison tables.
 
-See `docs/user_manual.md` for a detailed field‑by‑field description.
+See `docs/1_User_Manual.md` for a detailed field‑by‑field description.
 
 ## Configuration
 
@@ -305,7 +305,7 @@ The current version keeps qualitative mappings (1–5 → points) and some score
 - The ratio log in the report includes a `DistressNotches` column showing, per metric, whether it contributed to the hardstop.
 - Distress also feeds into the **outlook**: when `distress_notches < 0`, the model examines trends in selected distress metrics (from `DISTRESS_TREND_METRICS` or the default trio) to differentiate weak‑but‑improving from weak‑and‑deteriorating profiles.
 
-See `docs/Hardstop_Rating_Workflow.md` for full details and examples.
+See `docs/6_Hardstop_Rating_Workflow.md` for full details and examples.
 
 ---
 
