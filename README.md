@@ -287,7 +287,11 @@ Defines model parameters including:
 - Ratio scoring bands / thresholds (`lower_better` / `higher_better` sheets)  
 - Ratio and family weights  
 - Direction assignments (`higher_better` vs `lower_better`)  
-- Distress configuration: `distress_bands` sheet defining metric‑level distress thresholds and `notches_down`, plus `MAX_DISTRESS_NOTCHES` in the `others` sheet 
+- Distress configuration: `distress_bands` sheet defining metric‑level distress thresholds and `notches_down`, plus `MAX_DISTRESS_NOTCHES` in the `others` sheet.
+  
+  **Note:** The `distress_bands` sheet fully overrides the built‑in defaults; if it contains any rows, only the metrics listed there are used for distress.
+  If it is missing or empty, the model falls back to the default bands for `interest_coverage`, `dscr`, and `altman_z`.
+  
 - Optional quantitative/qualitative global weights and other switches
 
 The current version keeps qualitative mappings (1–5 → points) and some score→grade defaults in code rather than in Excel.
