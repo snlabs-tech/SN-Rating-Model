@@ -80,7 +80,7 @@ What happens:
 - Quantitative and qualitative logs for T0 are printed to the console (value, score, weight, peer info, distress notches).
 
 For more detail on the script and workflow, see:  
-`docs/Running the model.md`.
+`docs/2_Running_The_Model.md`.
 
 ---
 
@@ -134,7 +134,7 @@ If you plan to use the tool beyond a one‑off demo, you should review and likel
 - **Weights and distress limits** (`quantitative_weight`, `qualitative_weight`, `MAX_DISTRESS_NOTCHES` in `others`).
 
 The detailed logic for each of these is documented in:  
-`docs/SN Corporate Rating Model – Methodology.md` (see the “Configuration methodology” section).
+`docs/3_Methodology_Overview.md` (see the “Configuration methodology” section).
 
 ---
 
