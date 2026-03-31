@@ -11,7 +11,7 @@ This short manual explains how to use the SN Corporate Rating Model at a practic
 - The default ratios, bands, and rating scale are **illustrative**. Users are expected to define their own configuration (ratios, bands, and score‑to‑rating scale) and validate it against their own portfolio and governance.
 
 For the full methodology, see:  
-`SN-Rating-Model/docs/2_Methodology.md`.
+`SN-Rating-Model/docs/3_Methodology_Overview.md`.
 
 ---
 
