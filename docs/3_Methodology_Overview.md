@@ -440,7 +440,8 @@ The model incorporates explicit distress triggers to constrain ratings when cove
 
 `compute_distress_notches`:
 
-- Uses `DISTRESS_BANDS` for `interest_coverage`, `dscr`, and `altman_z`.
+- All metrics defined in the distress_bands sheet (or DISTRESS_BANDS config) can trigger hardstops.
+- If that sheet is blank/missing, the model falls back to the three core metrics (interest_coverage, dscr, altman_z).
 - For each metric, finds the first threshold where the observed value is less than or equal to the threshold and applies the corresponding `notches_down`.
 - Sums these to `distress_notches`.
 - Applies `MAX_DISTRESS_NOTCHES` as a floor (e.g. never less severe than −4 once distress is triggered).
