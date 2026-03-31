@@ -1,6 +1,6 @@
 # Running the model
 
-This document explains how to run the SN Corporate Rating Model, either using Python from the cloned repository or using the Windows bundle for non‑technical users.
+This document explains how to run the SN-Rating-Model, either using Python from the cloned repository or using the Windows bundle for non‑technical users.
 
 ---
 
