@@ -34,7 +34,13 @@ Distress metrics are defined dynamically via `DISTRESS_BANDS` in the config (and
 -   `dscr` — debt service coverage ratio
 
 -   `altman_z` — Altman Z‑score
-You can add any additional metrics (e.g. `current_ratio`, `rollover_coverage`, covenant tests) in the `distress_bands` sheet; they will automatically participate in distress notching. 
+You can add any additional metrics (e.g. `current_ratio`, `rollover_coverage`, covenant tests) in the `distress_bands` sheet; they will automatically participate in distress notching.
+
+**Important:** The distress_bands sheet overrides the built‑in defaults.
+
+- If the sheet is missing or empty, the model uses the default bands for `interest_coverage`, `dscr`, and `altman_z`.
+
+- If the sheet contains any rows, only the metrics listed there are used for distress; defaults for metrics not listed are not applied. To keep the core metrics active, you must include them explicitly in the sheet.
 
 Each metric has a set of **bands** with associated **negative notches**, configured via `DISTRESS_BANDS`. Example (default code configuration):
 
@@ -59,7 +65,6 @@ DISTRESS_BANDS = {
 
 MAX_DISTRESS_NOTCHES = -4
 ```
-If the Excel `distress_bands` sheet is present, it overrides these defaults; if it is missing or empty, the model uses these bands as a fallback.
 
 ### Interpretation (example for `interest_coverage`)
 
