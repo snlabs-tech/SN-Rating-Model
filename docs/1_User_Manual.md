@@ -29,6 +29,9 @@ From the cloned repository, the key items are:
 - `windows_bundle/`
   - For Windows users who do *not* want to install or run Python.
   - Contains its own `input/` and `output/` folders plus a batch file and `.exe` launcher.
+ 
+- `src/`  
+  - Contains the core Python modules and logic of the rating engine (e.g., scoring rules, report generation, Excel I/O helpers). This is where you implement or modify the rating algorithms and configuration‑handling code.
 
 - `run_sn_rating.py`
   - Python script entry point for running the model from the cloned repo.
