@@ -22,6 +22,107 @@ The project supports two main use cases:
 The model reads Excel input data, applies scoring rules defined in configuration files, and generates an Excel **rating report**.
 
 ---
+# Cloning the SN-Rating-Model Repository
+
+You can get the project code in two main ways:
+
+- Using `git clone` (recommended if you use Git / plan to update regularly)
+- Downloading a ZIP (quick one‑off download)
+
+---
+
+## Option 1 – Clone via Git (HTTPS)
+
+1. Make sure Git is installed on your machine.  
+   - On Windows, you can install Git from: https://git-scm.com/downloads  
+   - On macOS, Git is usually available via Xcode Command Line Tools or Homebrew.  
+   - On Linux, install via your package manager (e.g. `sudo apt install git`).
+
+2. Open the GitHub repository page in your browser:  
+   - `https://github.com/snlabs-tech/SN-Rating-Model`
+
+3. Click the green **Code** button.
+
+4. In the **HTTPS** tab, copy the repository URL, which should look like:
+   ```text
+   https://github.com/snlabs-tech/SN-Rating-Model.git
+   ```
+
+5. Open a terminal (Command Prompt, PowerShell, Git Bash, or any shell).
+
+6. Change to the directory where you want to clone the project:
+   ```bash
+   cd /path/to/your/projects
+   ```
+
+7. Run the clone command:
+   ```bash
+   git clone https://github.com/snlabs-tech/SN-Rating-Model.git
+   ```
+
+8. Move into the cloned repository:
+   ```bash
+   cd SN-Rating-Model
+   ```
+
+You now have a local working copy of the repository.
+
+---
+
+## Option 2 – Clone via Git (SSH)
+
+Use this if you have an SSH key configured with GitHub.
+
+1. Configure an SSH key with your GitHub account (if not already done).  
+   See: https://docs.github.com/en/authentication/connecting-to-github-with-ssh
+
+2. Open the repo page:  
+   - `https://github.com/snlabs-tech/SN-Rating-Model`
+
+3. Click the green **Code** button, switch to the **SSH** tab, and copy the SSH URL:
+   ```text
+   git@github.com:snlabs-tech/SN-Rating-Model.git
+   ```
+
+4. In your terminal:
+   ```bash
+   cd /path/to/your/projects
+   git clone git@github.com:snlabs-tech/SN-Rating-Model.git
+   cd SN-Rating-Model
+   ```
+
+---
+
+## Option 3 – Download as ZIP (no Git needed)
+
+1. Open the GitHub repository page:  
+   - `https://github.com/snlabs-tech/SN-Rating-Model`
+
+2. Click the green **Code** button.
+
+3. Click **Download ZIP**.
+
+4. Once downloaded, unzip the file into your desired folder.
+
+5. The unzipped folder contains the project files; you can open it in your editor or run the code from there.
+
+---
+
+## After Cloning / Downloading
+
+Once you have the project locally:
+
+- Navigate into the project directory:
+  ```bash
+  cd SN-Rating-Model
+  ```
+- Follow the project’s README instructions to set up Python dependencies and run:
+  ```bash
+  python run_sn_rating.py
+  ```
+  or use the `windows_bundle` as described in the documentation, if you prefer the packaged executable.
+  
+---
 
 ## Repository structure
 
@@ -79,7 +180,7 @@ Conceptually, the model applies three layers:
    Derived from the combined quantitative and qualitative score using `SCORE_TO_RATING`, with no distress overlay and no sovereign cap.
 
 2. **Distress hardstops (optional)**  
-   Apply notch‑down adjustments based on any ratios configured in `DISTRESS_BANDS` (e.g. interest coverage, DSCR, Altman Z, liquidity or covenant ratios). If no `distress_bands` input is provided in the Excel config, the model falls back to the three core metrics: `interest_coverage`, `dscr`, and `altman_z`.  
+   Apply notch‑down adjustments based on a set of configured distress metrics (from `DISTRESS_BANDS`), for e.g. interest coverage, DSCR, Altman Z, liquidity or covenant ratios. If no `distress_bands` input is provided in the Excel config, the model falls back to the three core metrics: `interest_coverage`, `dscr`, and `altman_z`.  
    The distress / hardstop mechanism acts like a configurable **covenant‑style breach trigger**: whenever any configured ratio crosses a specified distress threshold, the model applies the associated downgrade notches to the base rating, subject to `MAX_DISTRESS_NOTCHES`.
 
 3. **Sovereign cap (optional)**  
