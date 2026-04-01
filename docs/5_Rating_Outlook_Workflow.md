@@ -286,10 +286,9 @@ sovereign_cap_binding = True
 ```
 
 Effects:
-
-- If sovereign rating weaker → outlook aligns to sovereign outlook.
+- If hardstop stronger than sovereign  → outlook aligns to sovereign outlook.
 - If ratings equal → take the **more conservative outlook**.
-- If sovereign stronger → outlook driven by `hardstop_outlook`.
+- If hardstop weaker than sovereign → outlook driven by `hardstop_outlook`.
 
 ---
 
