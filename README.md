@@ -3,10 +3,13 @@
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen)
 
+---
+> The SN Rating Model is a configurable, Python‑based corporate credit rating engine with an Excel front‑end. It lets you align the rating logic to your own risk appetite and governance: define financial ratios, qualitative factors, distress hardstops, sovereign caps, and outlook rules in clear Excel templates, while the core logic runs in a clean, inspectable Python package. You get transparent, explainable ratings – not a black‑box vendor model.
+
+---
 ## Status
 
-This repository contains the **latest and actively maintained** SN Rating Model.  
-Earlier implementations of the SN Rating Model are **deprecated** and kept only for historical reference; they will not receive new features or bug fixes.
+This repository contains the **latest and actively maintained** SN Rating Model. Earlier implementations of the SN Rating Model are **deprecated** and kept only for historical reference; they will not receive new features or bug fixes.
 
 ## Overview
 
