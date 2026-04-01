@@ -34,38 +34,50 @@ In the current implementation the **base outlook** is always derived from the **
 
 ### 1.2 Distress Hardstops and Trends
 
-Distress hardstops use three quantitative indicators:
+The rating‑outlook logic is driven primarily by financial‑distress indicators and their trends over time. This workflow is split into two stages:
 
+1. **1.2 Distress hardstops**
+
+The engine uses three quantitative distress indicators:
 - `interest_coverage`
-- `dscr`
+- `dscr` (debt‑service coverage ratio)
 - `altman_z`
 
-`compute_distress_notches(fin_t0, altman_z)`:
+At each rating run, the function `compute_distress_notches(fin_t0, altman_z)` is called to apply the distress‑hardstop logic:
 
-- For each distress metric, checks if it falls below its threshold bands in `DISTRESS_BANDS`.
-- Sums the associated negative notches (floored at `MAX_DISTRESS_NOTCHES`).
-- Returns `(distress_notches, hardstop_details, per_metric_notches)`.
+- For each metric, the engine checks whether its value falls below its corresponding threshold bands in `DISTRESS_BANDS`.  
+- For every metric that breaches its band, the engine assigns a negative “notch” value (e.g., −1, −2) and sums these notches.  
+- The total is then floored at `MAX_DISTRESS_NOTCHES` (a configurable negative cap) to prevent unduly aggressive downgrades.  
+- The function returns:
+  - `distress_notches` (total negative notches),
+  - `hardstop_details` (per‑metric breakdown of which bands were breached), and
+  - `per_metric_notches` (notches assigned to each individual metric).
 
-`derive_outlook_with_distress_trend(base_outlook, distress_notches, fin_t0, fin_t1)`:
+2. **Distress‑driven trend overlay**
 
-- If `distress_notches >= 0`:
-  - Returns `base_outlook` unchanged.
+The trend‑sensitive outlook step only activates when distress hardstops have actually bitten, i.e., when `distress_notches < 0`:
 
-- If `distress_notches < 0` (distress active):
-  - Compares t1 → t0 for `interest_coverage`, `dscr`, `altman_z`:
+```python
+derive_outlook_with_distress_trend(base_outlook, distress_notches, fin_t0, fin_t1)
+```
 
-    For each metric with values in both periods:
-    - If `t0 > t1` → **improving**
-    - If `t0 < t1` → **deteriorating**
+- If `distress_notches >= 0` (no active distress), the outlook remains exactly `base_outlook`; no trend‑based adjustment is applied.  
+- If `distress_notches < 0` (distress active), the engine compares `t1 → t0` for `interest_coverage`, `dscr`, and `altman_z`:
 
-  Rules:
+  - For each metric that has values in both periods:
+    - If `t0 > t1` → the metric is **improving**.
+    - If `t0 < t1` → the metric is **deteriorating**.
 
-  - Improving and not deteriorating → **Stable**
-  - Deteriorating and not improving → **Negative**
-  - Mixed / flat → **Stable**
+Then the following rules are applied:
 
-Important: the trend overlay only runs when **hardstops have actually bitten** (`distress_notches < 0`). It cannot create a Positive outlook; it only moves between Stable and Negative.
+- **Improving and not deteriorating** (all tracked distress metrics are improving or flat) → **Stable** outlook.  
+- **Deteriorating and not improving** (any metric is deteriorating and none are clearly improving) → **Negative** outlook.  
+- **Mixed or flat** (some metrics improving, some deteriorating, or broadly flat) → default to **Stable**.
 
+#### Important constraints
+
+- The trend overlay **cannot** create a **Positive** outlook; it only modifies `base_outlook` between **Stable** and **Negative**, and only when distress‑hardstops have bitten.  
+- The underlying distress bands (`DISTRESS_BANDS`) are dynamic and can be extended beyond the current three ratios; the code is designed to accommodate additional distress metrics in the future while preserving this two‑stage (hardstop + trend) logic.
 ---
 
 ### 1.3 Sovereign Cap and Binding Definition
@@ -169,12 +181,13 @@ else:
 
 Interpretation:
 
-- If the sovereign rating is stronger than the issuer’s hardstop rating, the issuer outlook aligns to the sovereign outlook.
-- If sovereign and issuer ratings are equal, the model takes the **more conservative outlook** between:
+- If the sovereign cap is binding and the **issuer’s hardstop rating is stronger than the sovereign rating**, the issuer’s outlook is **capped at the sovereign outlook** (the final outlook equals `sovereign_outlook`).
+
+- If the sovereign cap is binding and the **sovereign and issuer hardstop ratings are equal**, the model takes the **more conservative (more negative) outlook** between:
   - `hardstop_outlook`
   - `sovereign_outlook`
-- If the sovereign rating is weaker than the issuer’s hardstop rating, the outlook remains driven by the issuer’s distress logic.
 
+- If the sovereign cap is binding and the **sovereign rating is weaker than the issuer’s hardstop rating**, or if the cap is not binding / sovereign outlook is invalid, the final outlook **remains driven by the issuer’s distress logic** (`hardstop_outlook`).
 ---
 
 ### 2.4 AAA Guardrail
@@ -274,9 +287,9 @@ sovereign_cap_binding = True
 
 Effects:
 
-- If sovereign rating stronger → outlook aligns to sovereign outlook.
+- If sovereign rating weaker → outlook aligns to sovereign outlook.
 - If ratings equal → take the **more conservative outlook**.
-- If sovereign weaker → outlook driven by `hardstop_outlook`.
+- If sovereign stronger → outlook driven by `hardstop_outlook`.
 
 ---
 
