@@ -10,25 +10,24 @@ The goal is to align the issuer's rating with country-level risk and to avoid si
 
 The rating is built in three main layers:
 
-1. **Base rating (unconstrained)**  
-   Derived from the combined quantitative and qualitative score using `SCORE_TO_RATING`, before any hardstops or caps.
+- **Base rating (unconstrained)**  
+  Derived from the combined quantitative and qualitative score using `SCORE_TO_RATING`, before any hardstops or caps.
 
-2. **Distress hardstops (optional)**  
-   Apply notch-down adjustments based on:
-   - `interest_coverage`
-   - `dscr`
-   - `altman_z`
+- **Distress hardstops (optional)**  
+  Apply notch‑down adjustments based on a set of configured distress indicators (for example, `interest_coverage`, `dscr`, `altman_z`, or any other user‑defined ratios mapped in `DISTRESS_BANDS`).
 
-3. **Sovereign cap (optional)**  
-   Ensures the issuer is not rated better than the specified sovereign rating when the cap is enabled.
+- **Sovereign cap (optional)**  
+  Ensures the issuer is not rated better than the specified sovereign rating when the cap is enabled.
 
 The **hardstop rating** is the outcome after applying the distress layer to the base rating.  
 The **capped rating** is the outcome after applying the sovereign cap to the hardstop rating.  
-The **final rating** is the sovereign-capped rating (there are no additional overlays after the cap).
+The **final rating** is the sovereign‑capped rating (there are no additional overlays after the cap).
 
 Overall flow:
 
-> base rating → hardstop rating → sovereign-capped final rating
+```text
+base rating → hardstop rating → sovereign‑capped final rating
+```
 
 When the cap is disabled, the final rating is simply the hardstop rating.
 

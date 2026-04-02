@@ -213,7 +213,7 @@ base_rating = BBB
 ```
 Then (depending on `RATING_SCALE`):
 
-`hardstop_rating` is three notches weaker (e.g. **BB-**), and the outlook may remain **Stable** or move to **Negative** depending on trends.
+`hardstop_rating` is three notches weaker (e.g. **BB**), and the outlook may remain **Stable** or move to **Negative** depending on trends.
 
 ## Scenario C – Severe Distress
 
@@ -237,7 +237,7 @@ base_rating = BBB
 
 Then:
 
-`hardstop_rating` is four notches weaker (e.g. down to the **“B” area**, depending on scale).
+`hardstop_rating` is four notches weaker (e.g. down to the **“BB-” area**, depending on scale).
 
 The downgrade is significant but still **bounded**.
 

@@ -3,10 +3,13 @@
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen)
 
+---
+> The SN Rating Model is a configurable, Python‑based corporate credit rating engine with an Excel front‑end. It lets you align the rating logic to your own risk appetite and governance: define financial ratios, qualitative factors, distress hardstops, sovereign caps, and outlook rules in clear Excel templates, while the core logic runs in a clean, inspectable Python package. You get transparent, explainable ratings – not a black‑box vendor model.
+
+---
 ## Status
 
-This repository contains the **latest and actively maintained** SN Rating Model.  
-Earlier implementations of the SN Rating Model are **deprecated** and kept only for historical reference; they will not receive new features or bug fixes.
+This repository contains the **latest and actively maintained** SN Rating Model. Earlier implementations of the SN Rating Model are **deprecated** and kept only for historical reference; they will not receive new features or bug fixes.
 
 ## Overview
 
@@ -21,6 +24,107 @@ The project supports two main use cases:
 
 The model reads Excel input data, applies scoring rules defined in configuration files, and generates an Excel **rating report**.
 
+---
+# Cloning the SN-Rating-Model Repository
+
+You can get the project code in two main ways:
+
+- Using `git clone` (recommended if you use Git / plan to update regularly)
+- Downloading a ZIP (quick one‑off download)
+
+---
+
+## Option 1 – Clone via Git (HTTPS)
+
+1. Make sure Git is installed on your machine.  
+   - On Windows, you can install Git from: https://git-scm.com/downloads  
+   - On macOS, Git is usually available via Xcode Command Line Tools or Homebrew.  
+   - On Linux, install via your package manager (e.g. `sudo apt install git`).
+
+2. Open the GitHub repository page in your browser:  
+   - `https://github.com/snlabs-tech/SN-Rating-Model`
+
+3. Click the green **Code** button.
+
+4. In the **HTTPS** tab, copy the repository URL, which should look like:
+   ```text
+   https://github.com/snlabs-tech/SN-Rating-Model.git
+   ```
+
+5. Open a terminal (Command Prompt, PowerShell, Git Bash, or any shell).
+
+6. Change to the directory where you want to clone the project:
+   ```bash
+   cd /path/to/your/projects
+   ```
+
+7. Run the clone command:
+   ```bash
+   git clone https://github.com/snlabs-tech/SN-Rating-Model.git
+   ```
+
+8. Move into the cloned repository:
+   ```bash
+   cd SN-Rating-Model
+   ```
+
+You now have a local working copy of the repository.
+
+---
+
+## Option 2 – Clone via Git (SSH)
+
+Use this if you have an SSH key configured with GitHub.
+
+1. Configure an SSH key with your GitHub account (if not already done).  
+   See: https://docs.github.com/en/authentication/connecting-to-github-with-ssh
+
+2. Open the repo page:  
+   - `https://github.com/snlabs-tech/SN-Rating-Model`
+
+3. Click the green **Code** button, switch to the **SSH** tab, and copy the SSH URL:
+   ```text
+   git@github.com:snlabs-tech/SN-Rating-Model.git
+   ```
+
+4. In your terminal:
+   ```bash
+   cd /path/to/your/projects
+   git clone git@github.com:snlabs-tech/SN-Rating-Model.git
+   cd SN-Rating-Model
+   ```
+
+---
+
+## Option 3 – Download as ZIP (no Git needed)
+
+1. Open the GitHub repository page:  
+   - `https://github.com/snlabs-tech/SN-Rating-Model`
+
+2. Click the green **Code** button.
+
+3. Click **Download ZIP**.
+
+4. Once downloaded, unzip the file into your desired folder.
+
+5. The unzipped folder contains the project files; you can open it in your editor or run the code from there.
+
+---
+
+## After Cloning / Downloading
+
+Once you have the project locally:
+
+- Navigate into the project directory:
+  ```bash
+  cd SN-Rating-Model
+  ```
+- Follow the project’s README instructions to set up Python dependencies and run:
+  ```bash
+  python run_sn_rating.py
+  ```
+  or use the `windows_bundle` as described in the documentation, if you prefer the packaged executable.
+  
 ---
 
 ## Repository structure
@@ -52,13 +156,13 @@ SN-Rating-Model/
 │       └── run_from_excel.py   # Entry point for Excel-based runs
 │
 ├── docs/                       # Methodology and workflow documentation
-│   ├── Hardstop_Rating_Workflow.md
-│   ├── Methodology overview.md
-│   ├── Quantitative_Factors_and_Ratio_Definitions.md
-│   ├── Rating–Outlook Workflow.md
-│   ├── Sovereign Cap Workflow.md
-│   ├── windows_bundle.md
-│   └── user_manual.md
+│   ├── 1_User_Manual.md
+│   ├── 2_Running_The_Model.md
+│   ├── 3_Methodology_Overview.md
+│   ├── 4_Quantitative_Factors_and_Ratio_Definitions.md
+│   ├── 5_Rating_Outlook_Workflow.md
+│   ├── 6_Hardstop_Rating_Workflow.md
+│   └── 7_Sovereign_Cap_Workflow.md
 │
 ├── notebooks/                  # Exploratory analysis and demos
 │   └── sn_rating.ipynb
@@ -79,7 +183,7 @@ Conceptually, the model applies three layers:
    Derived from the combined quantitative and qualitative score using `SCORE_TO_RATING`, with no distress overlay and no sovereign cap.
 
 2. **Distress hardstops (optional)**  
-   Apply notch‑down adjustments based on any ratios configured in `DISTRESS_BANDS` (e.g. interest coverage, DSCR, Altman Z, liquidity or covenant ratios). If no `distress_bands` input is provided in the Excel config, the model falls back to the three core metrics: `interest_coverage`, `dscr`, and `altman_z`.  
+   Apply notch‑down adjustments based on a set of configured distress metrics (from `DISTRESS_BANDS`), for e.g. interest coverage, DSCR, Altman Z, liquidity or covenant ratios. If no `distress_bands` input is provided in the Excel config, the model falls back to the three core metrics: `interest_coverage`, `dscr`, and `altman_z`.  
    The distress / hardstop mechanism acts like a configurable **covenant‑style breach trigger**: whenever any configured ratio crosses a specified distress threshold, the model applies the associated downgrade notches to the base rating, subject to `MAX_DISTRESS_NOTCHES`.
 
 3. **Sovereign cap (optional)**  
@@ -89,7 +193,7 @@ The **hardstop rating** is the outcome after applying the distress layer to the 
 
 Distress can also affect the **outlook** via trend‑based logic that looks at selected distress metrics over time.
 
-For a detailed description, see `docs/Hardstop_Rating_Workflow.md`.
+For a detailed description, see `docs/6_Hardstop_Rating_Workflow.md`.
 
 ---
 
@@ -111,7 +215,7 @@ Open:
 input/sn_rating_input.xlsx
 ```
 
-and enter the company data (see `docs/user_manual.md` for details on the `metadata`, `fin_ratios`, `components`, `qual_factors`, and `peers_t0` sheets).
+and enter the company data (see `docs/1_User_Manual.md` for details on the `metadata`, `fin_ratios`, `components`, `qual_factors`, and `peers_t0` sheets).
 
 ### 3. (Optional) Adjust configuration
 
@@ -172,8 +276,8 @@ pip install -r requirements.txt
 Clone the repository:
 
 ```bash
-git clone https://github.com/snlabs-tech/SN-Corporate-Rating-Model-V2.git
-cd SN-Corporate-Rating-Model-V2
+git clone https://github.com/snlabs-tech/SN-Rating-Model.git
+cd SN-Rating-Model
 ```
 
 (Editable install is optional; you can also run directly from source.)
@@ -274,7 +378,7 @@ Contains sheets such as:
 - `qual_factors` – 1–5 expert scores for qualitative dimensions.  
 - `peers_t0` – Peer company data for T0, used for peer comparison tables.
 
-See `docs/user_manual.md` for a detailed field‑by‑field description.
+See `docs/1_User_Manual.md` for a detailed field‑by‑field description.
 
 ## Configuration
 
@@ -305,7 +409,7 @@ The current version keeps qualitative mappings (1–5 → points) and some score
 - The ratio log in the report includes a `DistressNotches` column showing, per metric, whether it contributed to the hardstop.
 - Distress also feeds into the **outlook**: when `distress_notches < 0`, the model examines trends in selected distress metrics (from `DISTRESS_TREND_METRICS` or the default trio) to differentiate weak‑but‑improving from weak‑and‑deteriorating profiles.
 
-See `docs/Hardstop_Rating_Workflow.md` for full details and examples.
+See `docs/6_Hardstop_Rating_Workflow.md` for full details and examples.
 
 ---
 

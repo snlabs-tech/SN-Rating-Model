@@ -11,7 +11,7 @@ This short manual explains how to use the SN Corporate Rating Model at a practic
 - The default ratios, bands, and rating scale are **illustrative**. Users are expected to define their own configuration (ratios, bands, and score‑to‑rating scale) and validate it against their own portfolio and governance.
 
 For the full methodology, see:  
-`docs/SN Corporate Rating Model – Methodology.md`.
+`SN-Rating-Model/docs/3_Methodology_Overview.md`.
 
 ---
 
@@ -29,6 +29,9 @@ From the cloned repository, the key items are:
 - `windows_bundle/`
   - For Windows users who do *not* want to install or run Python.
   - Contains its own `input/` and `output/` folders plus a batch file and `.exe` launcher.
+ 
+- `src/`  
+  - Contains the core Python modules and logic of the rating engine (e.g., scoring rules, report generation, Excel I/O helpers). This is where you implement or modify the rating algorithms and configuration‑handling code.
 
 - `run_sn_rating.py`
   - Python script entry point for running the model from the cloned repo.
@@ -77,7 +80,7 @@ What happens:
 - Quantitative and qualitative logs for T0 are printed to the console (value, score, weight, peer info, distress notches).
 
 For more detail on the script and workflow, see:  
-`docs/Running the model.md`.
+`docs/2_Running_The_Model.md`.
 
 ---
 
@@ -131,17 +134,17 @@ If you plan to use the tool beyond a one‑off demo, you should review and likel
 - **Weights and distress limits** (`quantitative_weight`, `qualitative_weight`, `MAX_DISTRESS_NOTCHES` in `others`).
 
 The detailed logic for each of these is documented in:  
-`docs/SN Corporate Rating Model – Methodology.md` (see the “Configuration methodology” section).
+`docs/3_Methodology_Overview.md` (see the “Configuration methodology” section).
 
 ---
 
 ## 6. Where to find more detail
 
 - **Methodology and configuration**  
-  `docs/SN Corporate Rating Model – Methodology.md` – full description of inputs, configuration, quantitative and qualitative blocks, distress/hardstops, sovereign cap, and rating/outlook derivation.
+  `docs/3_Methodology_Overview.md` – full description of inputs, configuration, quantitative and qualitative blocks, distress/hardstops, sovereign cap, and rating/outlook derivation.
 
 - **How to run the model**  
-  `docs/Running the model.md` – step‑by‑step instructions for:
+  `docs/2_Running_The_Model.md` – step‑by‑step instructions for:
   - Running via Python (`run_sn_rating.py`).  
   - Running via the Windows bundle (`run_sn_rating.bat` + `Run_SN_RatingModel.exe`).
 
